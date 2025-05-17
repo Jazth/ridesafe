@@ -1,12 +1,10 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-
+import { Image } from 'expo-image';
+import { LogBox, StyleSheet } from 'react-native';
 export default function HomeScreen() {
+  LogBox.ignoreLogs([
+  'Warning: Text strings must be rendered within a <Text> component',
+]);
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}

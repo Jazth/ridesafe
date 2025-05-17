@@ -1,38 +1,40 @@
+import { useUserQueryLoginStore } from '@/constants/store';
+import { db } from '@/scripts/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
+import {
+    arrayRemove,
+    arrayUnion,
+    collection,
+    doc,
+    getDoc, // For filtering saved posts
+    increment,
+    onSnapshot,
+    orderBy,
+    query,
+    Timestamp,
+    updateDoc,
+    where, // For filtering saved posts
+} from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  FlatList,
-  Image as RNImage,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  Modal,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    FlatList,
+    Modal,
+    RefreshControl,
+    Image as RNImage,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '@/scripts/firebaseConfig';
-import {
-  arrayRemove,
-  arrayUnion,
-  collection,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  Timestamp,
-  updateDoc,
-  increment,
-  getDoc,
-} from 'firebase/firestore';
-import { useUserQueryLoginStore } from '@/constants/store';
 
 const { width } = Dimensions.get('window');
 
+// Consistent Post interface
 export interface Post {
   id: string;
   userId: string;
@@ -45,8 +47,8 @@ export interface Post {
   createdAt?: Timestamp;
   likesCount?: number;
   likedBy?: string[];
-  savesCount?: number;
-  savedBy?: string[];
+  savesCount?: number; // Included for consistency and potential display
+  savedBy?: string[];   // Included for consistency
   isLikedByCurrentUser?: boolean;
   isSavedByCurrentUser?: boolean;
 }
@@ -75,75 +77,54 @@ const formatTimeAgo = (timestamp: Timestamp | undefined): string => {
   return `${Math.round(days / 7)}w ago`;
 };
 
-const PostItem: React.FC<{
+// This item component can be largely shared or adapted
+const FavoritePostItem: React.FC<{
   post: Post;
   currentUserId: string | null;
   onShowLikes: (likedBy: string[]) => void;
-}> = React.memo(({ post, currentUserId, onShowLikes }) => {
+  onToggleSave: (postId: string, currentSaveStatus: boolean) => void; // Renamed for clarity
+}> = React.memo(({ post, currentUserId, onShowLikes, onToggleSave }) => {
   const [isLiked, setIsLiked] = useState(post.isLikedByCurrentUser || false);
   const [likeCount, setLikeCount] = useState(post.likesCount || 0);
-  const [isSaved, setIsSaved] = useState(post.isSavedByCurrentUser || false);
+  // isSaved will be true for all items initially on this screen
+  const [isSavedForThisItem, setIsSavedForThisItem] = useState(true);
   const [saveCount, setSaveCount] = useState(post.savesCount || 0);
 
 
   useEffect(() => {
     setIsLiked(post.isLikedByCurrentUser || false);
     setLikeCount(post.likesCount || 0);
-    setIsSaved(post.isSavedByCurrentUser || false);
+    setIsSavedForThisItem(post.isSavedByCurrentUser || true); // Default to true on this screen
     setSaveCount(post.savesCount || 0);
   }, [post.isLikedByCurrentUser, post.likesCount, post.isSavedByCurrentUser, post.savesCount]);
 
   const handleLikeToggle = async () => {
-    if (!currentUserId) {
-      Alert.alert('Action Required', 'Please log in to like posts.');
+    if (!currentUserId || !post.id) {
+      Alert.alert('Action Required', 'Please log in to interact with posts.');
       return;
     }
-    if (!post.id) return;
-
     const postRef = doc(db, 'posts', post.id);
     const newLikedStatus = !isLiked;
     setIsLiked(newLikedStatus);
-    setLikeCount(prevCount => (newLikedStatus ? prevCount + 1 : prevCount - 1));
-
+    setLikeCount(prev => newLikedStatus ? prev + 1 : prev - 1);
     try {
       await updateDoc(postRef, {
         likesCount: increment(newLikedStatus ? 1 : -1),
         likedBy: newLikedStatus ? arrayUnion(currentUserId) : arrayRemove(currentUserId),
       });
-      console.log('Post like status updated in Firestore.');
     } catch (error) {
       console.error('Error updating like status:', error);
       setIsLiked(!newLikedStatus);
-      setLikeCount(prevCount => (newLikedStatus ? prevCount - 1 : prevCount + 1));
+      setLikeCount(prev => newLikedStatus ? prev - 1 : prev + 1);
       Alert.alert('Error', 'Could not update like. Please try again.');
     }
   };
 
-  const handleSaveToggle = async () => {
-    if (!currentUserId) {
-      Alert.alert('Action Required', 'Please log in to save posts.');
-      return;
-    }
-    if (!post.id) return;
-
-    const postRef = doc(db, 'posts', post.id);
-    const newSavedStatus = !isSaved;
-    setIsSaved(newSavedStatus);
-    setSaveCount(prevCount => (newSavedStatus ? prevCount + 1 : prevCount - 1));
-
-
-    try {
-      await updateDoc(postRef, {
-        savesCount: increment(newSavedStatus ? 1 : -1), // Ensure this line is active
-        savedBy: newSavedStatus ? arrayUnion(currentUserId) : arrayRemove(currentUserId),
-      });
-      Alert.alert('Post Status', newSavedStatus ? 'Post added to your saved items.' : 'Post removed from your saved items.');
-    } catch (error) {
-      console.error('Error updating save status:', error);
-      setIsSaved(!newSavedStatus);
-      setSaveCount(prevCount => (newSavedStatus ? prevCount - 1 : prevCount + 1));
-      Alert.alert('Error', 'Could not update save status. Please try again.');
-    }
+  const handleSaveToggleClick = () => {
+    if (!currentUserId || !post.id) return;
+    // Call the prop function to handle the Firestore update
+    // The local state `isSavedForThisItem` will be updated via prop changes from the parent
+    onToggleSave(post.id, isSavedForThisItem);
   };
 
   const defaultProfilePic = 'https://placehold.co/50x50/E0E0E0/B0B0B0/png?text=User';
@@ -186,10 +167,11 @@ const PostItem: React.FC<{
               </TouchableOpacity>
             )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleSaveToggle} style={styles.actionIconTouchable}>
-            <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={24} color={isSaved ? '#007AFF' : '#333'} />
-             {/* Optionally display saveCount here if desired */}
-             {saveCount > 0 && <Text style={styles.likeCountText}>{saveCount}</Text>}
+          <TouchableOpacity onPress={handleSaveToggleClick} style={styles.actionIconTouchable}>
+            {/* On this screen, the icon is always filled because it's a "favorite" */}
+            <Ionicons name={'bookmark'} size={24} color={'#007AFF'} />
+            {/* Optionally display saveCount */}
+            {/* {saveCount > 0 && <Text style={styles.likeCountText}>{saveCount}</Text>} */}
           </TouchableOpacity>
         </View>
       </View>
@@ -211,19 +193,20 @@ const LikedByModal: React.FC<{
                 setIsLoadingLikes(true);
                 const usersData: UserBasicInfo[] = [];
                 try {
-                    for (const userId of userIds) {
+                    const userIdsToFetch = userIds.slice(0, 20);
+                    for (const userId of userIdsToFetch) {
                         const userDocRef = doc(db, 'users', userId);
                         const userDocSnap = await getDoc(userDocRef);
                         if (userDocSnap.exists()) {
                             const userData = userDocSnap.data();
                             usersData.push({
                                 id: userDocSnap.id,
-                                firstName: userData.firstName || 'Unknown',
+                                firstName: userData.firstName || 'User',
                                 lastName: userData.lastName || '',
                                 profilePictureUrl: userData.profilePictureUrl || null,
                             });
                         } else {
-                            usersData.push({ id: userId, firstName: 'Unknown', lastName: 'User' });
+                             usersData.push({ id: userId, firstName: 'Unknown', lastName: 'User' });
                         }
                     }
                     setLikedByUsers(usersData);
@@ -234,22 +217,15 @@ const LikedByModal: React.FC<{
                 }
             };
             fetchLikedByUsers();
-        } else if(!visible) { // Clear data when modal is not visible
+        } else if (!visible) {
             setLikedByUsers([]);
         }
     }, [visible, userIds]);
-
     const defaultProfilePic = 'https://placehold.co/40x40/E0E0E0/B0B0B0/png?text=U';
-
     return (
-        <Modal
-            animationType="slide"
-            transparent={true}
-            visible={visible}
-            onRequestClose={onClose}
-        >
+        <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>
             <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-                <TouchableOpacity style={styles.modalContent} activeOpacity={1} onPress={() => {/* Prevents closing on inner tap */}}>
+                <TouchableOpacity style={styles.modalContent} activeOpacity={1} onPress={() => {}}>
                     <View style={styles.modalHeader}>
                         <Text style={styles.modalTitle}>Liked by</Text>
                         <TouchableOpacity onPress={onClose}>
@@ -264,31 +240,23 @@ const LikedByModal: React.FC<{
                             keyExtractor={(item) => item.id}
                             renderItem={({ item }) => (
                                 <View style={styles.likedByUserItem}>
-                                    <RNImage
-                                        source={{ uri: item.profilePictureUrl || defaultProfilePic }}
-                                        style={styles.likedByUserImage}
-                                    />
-                                    <Text style={styles.likedByUserName}>
-                                        {item.firstName} {item.lastName?.trim()}
-                                    </Text>
+                                    <RNImage source={{ uri: item.profilePictureUrl || defaultProfilePic }} style={styles.likedByUserImage} />
+                                    <Text style={styles.likedByUserName}>{item.firstName} {item.lastName?.trim()}</Text>
                                 </View>
-                            )}
-                        />
-                    ) : (
-                        <Text style={styles.noLikesText}>No one has liked this post yet.</Text>
-                    )}
+                            )} />
+                    ) : (<Text style={styles.noLikesText}>No one has liked this post yet.</Text>)}
                 </TouchableOpacity>
             </TouchableOpacity>
         </Modal>
     );
 };
 
-
-const DiscoverScreen = () => {
+const ViewFavoritePostsScreen = () => {
+  const router = useRouter();
   const { currentUser } = useUserQueryLoginStore();
   const currentUserId = currentUser?.id || null;
 
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [favoritePosts, setFavoritePosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -296,9 +264,21 @@ const DiscoverScreen = () => {
   const [isLikedByModalVisible, setIsLikedByModalVisible] = useState(false);
   const [userIdsForModal, setUserIdsForModal] = useState<string[]>([]);
 
-  const fetchPosts = useCallback(() => {
+  const fetchFavoritePosts = useCallback(() => {
+    if (!currentUserId) {
+      setLoading(false);
+      setError("Please log in to see your favorite posts.");
+      setFavoritePosts([]);
+      return () => {};
+    }
+
+    setLoading(true);
     const postsCollectionRef = collection(db, 'posts');
-    const q = query(postsCollectionRef, orderBy('createdAt', 'desc'));
+    const q = query(
+      postsCollectionRef,
+      where('savedBy', 'array-contains', currentUserId), // Query based on savedBy array
+      orderBy('createdAt', 'desc') // Or order by a 'savedAt' field if you add it to the main post
+    );
 
     const unsubscribe = onSnapshot(
       q,
@@ -322,17 +302,17 @@ const DiscoverScreen = () => {
             savesCount: data.savesCount || 0,
             savedBy: savedByArray,
             isLikedByCurrentUser: currentUserId ? likedByArray.includes(currentUserId) : false,
-            isSavedByCurrentUser: currentUserId ? savedByArray.includes(currentUserId) : false,
+            isSavedByCurrentUser: true, // All posts here are considered saved by the current user
           };
         });
-        setPosts(fetchedPosts);
+        setFavoritePosts(fetchedPosts);
         setError(null);
         setLoading(false);
         setRefreshing(false);
       },
       err => {
-        console.error('Error fetching posts:', err);
-        setError('Failed to fetch posts. Please try again.');
+        console.error('Error fetching favorite posts:', err);
+        setError('Failed to fetch your favorite posts.');
         setLoading(false);
         setRefreshing(false);
       }
@@ -341,57 +321,91 @@ const DiscoverScreen = () => {
   }, [currentUserId]);
 
   useEffect(() => {
-    setLoading(true);
-    const unsubscribe = fetchPosts();
+    const unsubscribe = fetchFavoritePosts();
     return () => unsubscribe();
-  }, [fetchPosts]);
+  }, [fetchFavoritePosts]);
 
+  const handleToggleSave = async (postId: string, currentIsSaved: boolean) => {
+    if (!currentUserId) return;
+    const postRef = doc(db, 'posts', postId);
+    const newSavedStatus = !currentIsSaved; // This will always be false here, meaning "unsave"
+
+    // Optimistically update UI by removing the post from the list
+    // The onSnapshot listener will then confirm this from Firestore
+    if (!newSavedStatus) { // If unsaving
+        setFavoritePosts(prev => prev.filter(p => p.id !== postId));
+    }
+
+    try {
+      await updateDoc(postRef, {
+        savesCount: increment(newSavedStatus ? 1 : -1), // Decrement if unsaving
+        savedBy: newSavedStatus ? arrayUnion(currentUserId) : arrayRemove(currentUserId), // Remove user
+      });
+      Alert.alert(
+        newSavedStatus ? 'Post Saved' : 'Removed from Favorites',
+        newSavedStatus ? 'Post added back to your favorites.' : 'Post removed from your favorites.'
+      );
+    } catch (error) {
+      console.error('Error updating save status:', error);
+      // If error, might need to re-fetch or add the post back to the list if UI was too optimistic
+      Alert.alert('Error', 'Could not update favorite status.');
+      if (!newSavedStatus) { // If unsaving failed, re-fetch to be safe
+        fetchFavoritePosts();
+      }
+    }
+  };
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchPosts();
-  }, [fetchPosts]);
+    fetchFavoritePosts();
+  }, [fetchFavoritePosts]);
 
   const handleShowLikes = (likedByUserIds: string[]) => {
     setUserIdsForModal(likedByUserIds);
     setIsLikedByModalVisible(true);
   };
 
-  const navigateToCreatePost = () => {
-    if (!currentUserId) {
-      Alert.alert("Action Required", "Please log in to create a post.");
-      return;
-    }
-    router.push('/createPostScreen');
-  };
-
   const renderHeader = () => (
     <View style={styles.screenHeader}>
-      <Text style={styles.screenTitle}>Discover</Text>
-      <TouchableOpacity style={styles.notificationIcon}>
-        <Ionicons name="notifications-outline" size={26} color="#FF5722" />
+      <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/Profile')} style={styles.backButton}>
+        <Ionicons name="arrow-back-outline" size={26} color="#333" />
       </TouchableOpacity>
+      <Text style={styles.screenTitle}>Favorite Posts</Text>
+      <View style={{ width: 26 }} />
     </View>
   );
 
-  if (loading && posts.length === 0) {
+  if (!currentUserId && !loading) {
     return (
       <SafeAreaView style={[styles.safeArea, styles.centered]}>
         {renderHeader()}
-        <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 20 }} />
-        <Text style={{ marginTop: 10, color: '#555' }}>Loading posts...</Text>
+        <Ionicons name="log-in-outline" size={48} color="#888" style={{marginTop: 20}}/>
+        <Text style={styles.messageText}>Please log in to view your favorite posts.</Text>
+         <TouchableOpacity onPress={() => router.replace('/login')} style={styles.retryButton}>
+            <Text style={styles.retryButtonText}>Go to Login</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
-  if (error) {
+  if (loading && favoritePosts.length === 0) {
     return (
       <SafeAreaView style={[styles.safeArea, styles.centered]}>
         {renderHeader()}
-        <Ionicons name="warning-outline" size={48} color="red" style={{ marginTop: 20 }} />
+        <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 20 }} />
+        <Text style={styles.messageText}>Loading favorite posts...</Text>
+      </SafeAreaView>
+    );
+  }
+
+   if (error && !loading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, styles.centered]}>
+        {renderHeader()}
+        <Ionicons name="warning-outline" size={48} color="red" style={{marginTop: 20}}/>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity onPress={onRefresh} style={styles.retryButton}>
-          <Text style={styles.retryButtonText}>Try Again</Text>
+         <TouchableOpacity onPress={onRefresh} style={styles.retryButton}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -401,12 +415,13 @@ const DiscoverScreen = () => {
     <SafeAreaView style={styles.safeArea}>
       {renderHeader()}
       <FlatList
-        data={posts}
+        data={favoritePosts}
         renderItem={({ item }) => (
-          <PostItem
+          <FavoritePostItem
             post={item}
             currentUserId={currentUserId}
             onShowLikes={handleShowLikes}
+            onToggleSave={handleToggleSave} // Pass the correct handler
           />
         )}
         keyExtractor={item => item.id}
@@ -414,9 +429,9 @@ const DiscoverScreen = () => {
         ListEmptyComponent={
           !loading ? (
             <View style={styles.emptyStateContainer}>
-              <Ionicons name="compass-outline" size={60} color="#B0B0B0" />
-              <Text style={styles.emptyStateText}>No posts yet.</Text>
-              <Text style={styles.emptyStateSubText}>Be the first to share something!</Text>
+              <Ionicons name="bookmark-outline" size={60} color="#B0B0B0" />
+              <Text style={styles.emptyStateText}>No favorite posts yet.</Text>
+              <Text style={styles.emptyStateSubText}>Posts you save will appear here.</Text>
             </View>
           ) : null
         }
@@ -424,10 +439,7 @@ const DiscoverScreen = () => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#007AFF"]} tintColor={"#007AFF"} />
         }
       />
-      <TouchableOpacity style={styles.fab} onPress={navigateToCreatePost}>
-        <Ionicons name="add-outline" size={30} color="white" />
-      </TouchableOpacity>
-      <LikedByModal
+       <LikedByModal
         visible={isLikedByModalVisible}
         onClose={() => setIsLikedByModalVisible(false)}
         userIds={userIdsForModal}
@@ -444,6 +456,7 @@ const styles = StyleSheet.create({
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
   },
   screenHeader: {
     flexDirection: 'row',
@@ -455,16 +468,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
-  screenTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FF5722',
+  backButton: {
+    padding: 5,
   },
-  notificationIcon: {
-    padding: 8,
+  screenTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1C1C1E',
   },
   listContentContainer: {
-    paddingBottom: 80,
+    paddingBottom: 20,
     paddingHorizontal: 8,
   },
   postContainer: {
@@ -565,23 +578,6 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '600',
   },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 10,
-    bottom: 10,
-    backgroundColor: '#007AFF',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
   emptyStateContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -601,6 +597,12 @@ const styles = StyleSheet.create({
     color: '#ADB5BD',
     marginTop: 4,
     textAlign: 'center',
+  },
+  messageText: {
+    fontSize: 16,
+    color: '#555',
+    textAlign: 'center',
+    marginTop: 10,
   },
   errorText: {
     fontSize: 16,
@@ -629,7 +631,7 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: 'white',
     borderRadius: 10,
-    padding: 20,
+    padding: 15,
     width: '85%',
     maxHeight: '70%',
     shadowColor: '#000',
@@ -655,22 +657,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   likedByUserImage: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    marginRight: 10,
+    marginRight: 12,
     backgroundColor: '#E0E0E0',
   },
   likedByUserName: {
     fontSize: 16,
+    color: '#333',
   },
   noLikesText: {
     textAlign: 'center',
     color: '#666',
     marginVertical: 20,
+    fontSize: 15,
   }
 });
 
-export default DiscoverScreen;
+export default ViewFavoritePostsScreen;

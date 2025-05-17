@@ -7,6 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUserProfileStore } from '@/constants/userProfileStore';
 // Import the login store to get the current user's ID
 import { useUserQueryLoginStore } from '@/constants/store';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 
 // Static list of maintenance items for Cars
@@ -143,12 +145,24 @@ const MaintenanceScreen = () => {
         );
     }
 
+const maintenanceLog = () => {
+  if (selectedVehicleId) {
+    router.replace({
+      pathname: '../maintenance_log',
+      params: { vehicleId: selectedVehicleId },
+    });
+  }
+};
+
 
     return (
         <SafeAreaView style={styles.safeArea}>
             {/* Header */}
             <View style={styles.headerContainer}>
                 <Text style={styles.headerText}>Vehicle Maintenance</Text>
+                <TouchableOpacity onPress={maintenanceLog} style={styles.addVehicleIcon}>
+                         <Ionicons name="folder-open-sharp" size={28} color="#FF5722" />
+                </TouchableOpacity>
             </View>
             {vehicles.length > 0 && (
                 <>
@@ -161,7 +175,7 @@ const MaintenanceScreen = () => {
                                  onValueChange={(itemValue: string | null) => setSelectedVehicleId(itemValue)}
                                  style={styles.picker}
                                  itemStyle={styles.pickerItem}
-                                 enabled={!isSavingReminders} // Disable picker while saving
+                                 enabled={!isSavingReminders}
                              >
                                  {vehicles.map(vehicle => (
                                      <Picker.Item key={vehicle.id} label={`${vehicle.year} ${vehicle.make} ${vehicle.model}`} value={vehicle.id} />
@@ -240,8 +254,9 @@ const styles = StyleSheet.create({
     headerContainer: {
         paddingHorizontal: 20,
         paddingTop: 10,
-        marginBottom: 10,
+        marginBottom: 20,
         alignItems: 'center',
+        flexDirection: 'row',
     },
     headerText: {
         fontSize: 28,
@@ -260,11 +275,17 @@ const styles = StyleSheet.create({
         marginRight: 10,
 
     },
+    addVehicleIcon:{
+        width: 25,
+        height: 25,
+        marginLeft: 120,
+    },
     pickerContainer: {
         flex: 1,
         borderWidth: 1,
         borderColor: '#ccc',
         borderRadius: 5,
+      
     },
      picker: {
         height: 53,
@@ -287,8 +308,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
     maintenanceListContainer: {
-        // Removed fixed width
-        // width: 350,
 
     },
     maintenanceItem: {
@@ -324,7 +343,7 @@ const styles = StyleSheet.create({
         color: 'gray',
     },
     saveButton: {
-        backgroundColor: 'black',
+        backgroundColor: '#FF5722',
         padding: 15,
         borderRadius: 5,
         alignItems: 'center',

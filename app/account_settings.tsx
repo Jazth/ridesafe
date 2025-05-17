@@ -229,7 +229,6 @@ const ProfileSettingsScreen = () => {
         <SafeAreaView style={styles.safeArea}>
              <View style={styles.topSection}>
                 <ProfileLogoWithPicker userInfo={userInfo} />
-                <View style={styles.blackLine} />
             </View>
 
             <ScrollView style={styles.cont}>
@@ -328,7 +327,8 @@ const styles = StyleSheet.create({
     topSection: {
          paddingTop: 10,
          paddingHorizontal: 10,
-         marginTop: 0, // Removed margin top
+         backgroundColor: 'white',
+         color: 'white',
     },
     logoWithPickerContainer: {
         flexDirection: 'row',

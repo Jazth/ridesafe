@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,27 +15,29 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '@/scripts/firebaseConfig';
+import { db } from '@/scripts/firebaseConfig'; // Your Firestore instance
 import {
   arrayRemove,
   arrayUnion,
   collection,
   doc,
+  getDoc, // For fetching user details for likes list
   onSnapshot,
   orderBy,
   query,
   Timestamp,
   updateDoc,
+  where, // For filtering liked posts
   increment,
-  getDoc,
 } from 'firebase/firestore';
-import { useUserQueryLoginStore } from '@/constants/store';
+import { useUserQueryLoginStore } from '@/constants/store'; // To get current user
 
 const { width } = Dimensions.get('window');
 
+// Re-using the Post interface from DiscoverScreen
 export interface Post {
   id: string;
-  userId: string;
+  userId: string; // UID of the post creator
   userName: string;
   userProfilePictureUrl?: string | null;
   title: string;
@@ -45,18 +47,18 @@ export interface Post {
   createdAt?: Timestamp;
   likesCount?: number;
   likedBy?: string[];
-  savesCount?: number;
-  savedBy?: string[];
   isLikedByCurrentUser?: boolean;
-  isSavedByCurrentUser?: boolean;
+  isSavedByCurrentUser?: boolean; // Keep for consistency if PostItem expects it
 }
 
+// Re-using UserBasicInfo for the "Liked By" modal
 export interface UserBasicInfo {
     id: string;
     firstName?: string;
     lastName?: string;
     profilePictureUrl?: string | null;
 }
+
 
 const formatTimeAgo = (timestamp: Timestamp | undefined): string => {
   if (!timestamp) return 'Just Now';
@@ -75,23 +77,24 @@ const formatTimeAgo = (timestamp: Timestamp | undefined): string => {
   return `${Math.round(days / 7)}w ago`;
 };
 
-const PostItem: React.FC<{
+// Adapted PostItem - it's mostly the same as in DiscoverScreen
+const LikedPostItem: React.FC<{
   post: Post;
   currentUserId: string | null;
   onShowLikes: (likedBy: string[]) => void;
+  // No onSave prop needed here unless you want to save/unsave from this screen too
 }> = React.memo(({ post, currentUserId, onShowLikes }) => {
   const [isLiked, setIsLiked] = useState(post.isLikedByCurrentUser || false);
   const [likeCount, setLikeCount] = useState(post.likesCount || 0);
+  // You might not need save functionality on this screen, but keep for consistency if PostItem is shared
   const [isSaved, setIsSaved] = useState(post.isSavedByCurrentUser || false);
-  const [saveCount, setSaveCount] = useState(post.savesCount || 0);
 
 
   useEffect(() => {
     setIsLiked(post.isLikedByCurrentUser || false);
     setLikeCount(post.likesCount || 0);
     setIsSaved(post.isSavedByCurrentUser || false);
-    setSaveCount(post.savesCount || 0);
-  }, [post.isLikedByCurrentUser, post.likesCount, post.isSavedByCurrentUser, post.savesCount]);
+  }, [post.isLikedByCurrentUser, post.likesCount, post.isSavedByCurrentUser]);
 
   const handleLikeToggle = async () => {
     if (!currentUserId) {
@@ -102,49 +105,37 @@ const PostItem: React.FC<{
 
     const postRef = doc(db, 'posts', post.id);
     const newLikedStatus = !isLiked;
-    setIsLiked(newLikedStatus);
-    setLikeCount(prevCount => (newLikedStatus ? prevCount + 1 : prevCount - 1));
+    setIsLiked(newLikedStatus); // Optimistic UI update
+    setLikeCount(prevCount => (newLikedStatus ? prevCount + 1 : prevCount - 1)); // Optimistic
 
     try {
       await updateDoc(postRef, {
         likesCount: increment(newLikedStatus ? 1 : -1),
         likedBy: newLikedStatus ? arrayUnion(currentUserId) : arrayRemove(currentUserId),
       });
-      console.log('Post like status updated in Firestore.');
+      console.log('Post like status updated in Firestore from LikedPostsScreen.');
     } catch (error) {
-      console.error('Error updating like status:', error);
-      setIsLiked(!newLikedStatus);
-      setLikeCount(prevCount => (newLikedStatus ? prevCount - 1 : prevCount + 1));
+      console.error('Error updating like status from LikedPostsScreen:', error);
+      setIsLiked(!newLikedStatus); // Revert optimistic update
+      setLikeCount(prevCount => (newLikedStatus ? prevCount - 1 : prevCount + 1)); // Revert
       Alert.alert('Error', 'Could not update like. Please try again.');
     }
   };
 
+  // Placeholder for save toggle if you decide to add it to this screen
   const handleSaveToggle = async () => {
     if (!currentUserId) {
       Alert.alert('Action Required', 'Please log in to save posts.');
       return;
     }
-    if (!post.id) return;
-
-    const postRef = doc(db, 'posts', post.id);
+    // Implement save/unsave logic similar to DiscoverScreen if needed
+    // For now, it just toggles local state
     const newSavedStatus = !isSaved;
     setIsSaved(newSavedStatus);
-    setSaveCount(prevCount => (newSavedStatus ? prevCount + 1 : prevCount - 1));
-
-
-    try {
-      await updateDoc(postRef, {
-        savesCount: increment(newSavedStatus ? 1 : -1), // Ensure this line is active
-        savedBy: newSavedStatus ? arrayUnion(currentUserId) : arrayRemove(currentUserId),
-      });
-      Alert.alert('Post Status', newSavedStatus ? 'Post added to your saved items.' : 'Post removed from your saved items.');
-    } catch (error) {
-      console.error('Error updating save status:', error);
-      setIsSaved(!newSavedStatus);
-      setSaveCount(prevCount => (newSavedStatus ? prevCount - 1 : prevCount + 1));
-      Alert.alert('Error', 'Could not update save status. Please try again.');
-    }
+    Alert.alert('Save Action', newSavedStatus ? 'Post saved (locally)' : 'Post unsaved (locally)');
+    // Remember to implement Firestore logic for saves if this button is functional
   };
+
 
   const defaultProfilePic = 'https://placehold.co/50x50/E0E0E0/B0B0B0/png?text=User';
 
@@ -186,17 +177,17 @@ const PostItem: React.FC<{
               </TouchableOpacity>
             )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleSaveToggle} style={styles.actionIconTouchable}>
+          {/* Optional: Save button, if you want this functionality here */}
+          {/* <TouchableOpacity onPress={handleSaveToggle} style={styles.actionIconTouchable}>
             <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={24} color={isSaved ? '#007AFF' : '#333'} />
-             {/* Optionally display saveCount here if desired */}
-             {saveCount > 0 && <Text style={styles.likeCountText}>{saveCount}</Text>}
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
       </View>
     </View>
   );
 });
 
+// Re-using LikedByModal from DiscoverScreen
 const LikedByModal: React.FC<{
     visible: boolean;
     onClose: () => void;
@@ -211,19 +202,21 @@ const LikedByModal: React.FC<{
                 setIsLoadingLikes(true);
                 const usersData: UserBasicInfo[] = [];
                 try {
-                    for (const userId of userIds) {
+                    // Fetch details for a limited number of users to avoid too many reads
+                    const userIdsToFetch = userIds.slice(0, 20); // Example: fetch first 20
+                    for (const userId of userIdsToFetch) {
                         const userDocRef = doc(db, 'users', userId);
                         const userDocSnap = await getDoc(userDocRef);
                         if (userDocSnap.exists()) {
                             const userData = userDocSnap.data();
                             usersData.push({
                                 id: userDocSnap.id,
-                                firstName: userData.firstName || 'Unknown',
+                                firstName: userData.firstName || 'User',
                                 lastName: userData.lastName || '',
                                 profilePictureUrl: userData.profilePictureUrl || null,
                             });
                         } else {
-                            usersData.push({ id: userId, firstName: 'Unknown', lastName: 'User' });
+                             usersData.push({ id: userId, firstName: 'Unknown', lastName: 'User' });
                         }
                     }
                     setLikedByUsers(usersData);
@@ -234,8 +227,8 @@ const LikedByModal: React.FC<{
                 }
             };
             fetchLikedByUsers();
-        } else if(!visible) { // Clear data when modal is not visible
-            setLikedByUsers([]);
+        } else if (!visible) {
+            setLikedByUsers([]); // Clear data when modal is closed
         }
     }, [visible, userIds]);
 
@@ -249,7 +242,7 @@ const LikedByModal: React.FC<{
             onRequestClose={onClose}
         >
             <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-                <TouchableOpacity style={styles.modalContent} activeOpacity={1} onPress={() => {/* Prevents closing on inner tap */}}>
+                <TouchableOpacity style={styles.modalContent} activeOpacity={1} onPress={() => { /* Prevents closing when tapping inside modal */ }}>
                     <View style={styles.modalHeader}>
                         <Text style={styles.modalTitle}>Liked by</Text>
                         <TouchableOpacity onPress={onClose}>
@@ -284,11 +277,12 @@ const LikedByModal: React.FC<{
 };
 
 
-const DiscoverScreen = () => {
+const ViewLikedPostsScreen = () => {
+  const router = useRouter();
   const { currentUser } = useUserQueryLoginStore();
   const currentUserId = currentUser?.id || null;
 
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [likedPosts, setLikedPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -296,9 +290,23 @@ const DiscoverScreen = () => {
   const [isLikedByModalVisible, setIsLikedByModalVisible] = useState(false);
   const [userIdsForModal, setUserIdsForModal] = useState<string[]>([]);
 
-  const fetchPosts = useCallback(() => {
+
+  const fetchLikedPosts = useCallback(() => {
+    if (!currentUserId) {
+      setLoading(false);
+      setError("Please log in to see your liked posts.");
+      setLikedPosts([]);
+      return () => {}; // Return an empty unsubscribe function
+    }
+
+    setLoading(true);
     const postsCollectionRef = collection(db, 'posts');
-    const q = query(postsCollectionRef, orderBy('createdAt', 'desc'));
+    // Query for posts where the 'likedBy' array contains the current user's ID
+    const q = query(
+      postsCollectionRef,
+      where('likedBy', 'array-contains', currentUserId),
+      orderBy('createdAt', 'desc') // Optional: order liked posts by when they were created
+    );
 
     const unsubscribe = onSnapshot(
       q,
@@ -306,7 +314,6 @@ const DiscoverScreen = () => {
         const fetchedPosts: Post[] = snapshot.docs.map(docSnap => {
           const data = docSnap.data();
           const likedByArray = Array.isArray(data.likedBy) ? data.likedBy : [];
-          const savedByArray = Array.isArray(data.savedBy) ? data.savedBy : [];
           return {
             id: docSnap.id,
             userId: data.userId || '',
@@ -319,20 +326,19 @@ const DiscoverScreen = () => {
             createdAt: data.createdAt instanceof Timestamp ? data.createdAt : undefined,
             likesCount: data.likesCount || 0,
             likedBy: likedByArray,
-            savesCount: data.savesCount || 0,
-            savedBy: savedByArray,
-            isLikedByCurrentUser: currentUserId ? likedByArray.includes(currentUserId) : false,
-            isSavedByCurrentUser: currentUserId ? savedByArray.includes(currentUserId) : false,
+            isLikedByCurrentUser: true, // All posts here are liked by the current user
+            // isSavedByCurrentUser: check if saved (requires fetching saved posts list if needed)
           };
         });
-        setPosts(fetchedPosts);
+        setLikedPosts(fetchedPosts);
         setError(null);
         setLoading(false);
         setRefreshing(false);
+        console.log('Fetched liked posts:', fetchedPosts.length);
       },
       err => {
-        console.error('Error fetching posts:', err);
-        setError('Failed to fetch posts. Please try again.');
+        console.error('Error fetching liked posts:', err);
+        setError('Failed to fetch liked posts. Please try again.');
         setLoading(false);
         setRefreshing(false);
       }
@@ -341,45 +347,49 @@ const DiscoverScreen = () => {
   }, [currentUserId]);
 
   useEffect(() => {
-    setLoading(true);
-    const unsubscribe = fetchPosts();
-    return () => unsubscribe();
-  }, [fetchPosts]);
-
+    const unsubscribe = fetchLikedPosts();
+    return () => unsubscribe(); // Cleanup on unmount
+  }, [fetchLikedPosts]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchPosts();
-  }, [fetchPosts]);
+    fetchLikedPosts();
+  }, [fetchLikedPosts]);
 
   const handleShowLikes = (likedByUserIds: string[]) => {
     setUserIdsForModal(likedByUserIds);
     setIsLikedByModalVisible(true);
   };
 
-  const navigateToCreatePost = () => {
-    if (!currentUserId) {
-      Alert.alert("Action Required", "Please log in to create a post.");
-      return;
-    }
-    router.push('/createPostScreen');
-  };
-
   const renderHeader = () => (
     <View style={styles.screenHeader}>
-      <Text style={styles.screenTitle}>Discover</Text>
-      <TouchableOpacity style={styles.notificationIcon}>
-        <Ionicons name="notifications-outline" size={26} color="#FF5722" />
+      <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/Profile')} style={styles.backButton}>
+        <Ionicons name="arrow-back-outline" size={26} color="#333" />
       </TouchableOpacity>
+      <Text style={styles.screenTitle}>Liked Posts</Text>
+      <View style={{ width: 26 }} /> {/* Spacer for centering title */}
     </View>
   );
 
-  if (loading && posts.length === 0) {
+  if (!currentUserId && !loading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, styles.centered]}>
+        {renderHeader()}
+        <Ionicons name="log-in-outline" size={48} color="#888" style={{marginTop: 20}}/>
+        <Text style={styles.messageText}>Please log in to view your liked posts.</Text>
+         <TouchableOpacity onPress={() => router.replace('/login')} style={styles.retryButton}>
+            <Text style={styles.retryButtonText}>Go to Login</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  if (loading && likedPosts.length === 0) {
     return (
       <SafeAreaView style={[styles.safeArea, styles.centered]}>
         {renderHeader()}
         <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 20 }} />
-        <Text style={{ marginTop: 10, color: '#555' }}>Loading posts...</Text>
+        <Text style={styles.messageText}>Loading liked posts...</Text>
       </SafeAreaView>
     );
   }
@@ -391,7 +401,7 @@ const DiscoverScreen = () => {
         <Ionicons name="warning-outline" size={48} color="red" style={{ marginTop: 20 }} />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity onPress={onRefresh} style={styles.retryButton}>
-          <Text style={styles.retryButtonText}>Try Again</Text>
+            <Text style={styles.retryButtonText}>Try Again</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -401,9 +411,9 @@ const DiscoverScreen = () => {
     <SafeAreaView style={styles.safeArea}>
       {renderHeader()}
       <FlatList
-        data={posts}
+        data={likedPosts}
         renderItem={({ item }) => (
-          <PostItem
+          <LikedPostItem
             post={item}
             currentUserId={currentUserId}
             onShowLikes={handleShowLikes}
@@ -414,20 +424,17 @@ const DiscoverScreen = () => {
         ListEmptyComponent={
           !loading ? (
             <View style={styles.emptyStateContainer}>
-              <Ionicons name="compass-outline" size={60} color="#B0B0B0" />
-              <Text style={styles.emptyStateText}>No posts yet.</Text>
-              <Text style={styles.emptyStateSubText}>Be the first to share something!</Text>
+              <Ionicons name="heart-dislike-outline" size={60} color="#B0B0B0" />
+              <Text style={styles.emptyStateText}>No liked posts yet.</Text>
+              <Text style={styles.emptyStateSubText}>Posts you like will appear here.</Text>
             </View>
           ) : null
         }
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#007AFF"]} tintColor={"#007AFF"} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#007AFF"]} tintColor={"#007AFF"}/>
         }
       />
-      <TouchableOpacity style={styles.fab} onPress={navigateToCreatePost}>
-        <Ionicons name="add-outline" size={30} color="white" />
-      </TouchableOpacity>
-      <LikedByModal
+       <LikedByModal
         visible={isLikedByModalVisible}
         onClose={() => setIsLikedByModalVisible(false)}
         userIds={userIdsForModal}
@@ -436,6 +443,7 @@ const DiscoverScreen = () => {
   );
 };
 
+// Styles (largely reused from DiscoverScreen, with minor adjustments if needed)
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -444,6 +452,7 @@ const styles = StyleSheet.create({
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
   },
   screenHeader: {
     flexDirection: 'row',
@@ -455,16 +464,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
-  screenTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FF5722',
+  backButton: {
+    padding: 5,
   },
-  notificationIcon: {
-    padding: 8,
+  screenTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1C1C1E',
   },
   listContentContainer: {
-    paddingBottom: 80,
+    paddingBottom: 20, // Adjusted padding
     paddingHorizontal: 8,
   },
   postContainer: {
@@ -565,23 +574,6 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '600',
   },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 10,
-    bottom: 10,
-    backgroundColor: '#007AFF',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
   emptyStateContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -602,6 +594,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
+  messageText: {
+    fontSize: 16,
+    color: '#555',
+    textAlign: 'center',
+    marginTop: 10,
+  },
   errorText: {
     fontSize: 16,
     color: 'red',
@@ -620,6 +618,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  // Modal styles (reused)
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -629,9 +628,9 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: 'white',
     borderRadius: 10,
-    padding: 20,
+    padding: 15, // Adjusted padding
     width: '85%',
-    maxHeight: '70%',
+    maxHeight: '70%', // Adjusted maxHeight
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -655,22 +654,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  likedByUserItemLast: { // Style for the last item to remove border
+    borderBottomWidth: 0,
   },
   likedByUserImage: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    marginRight: 10,
+    marginRight: 12, // Increased margin
     backgroundColor: '#E0E0E0',
   },
   likedByUserName: {
     fontSize: 16,
+    color: '#333',
   },
   noLikesText: {
     textAlign: 'center',
     color: '#666',
     marginVertical: 20,
+    fontSize: 15,
   }
 });
 
-export default DiscoverScreen;
+export default ViewLikedPostsScreen;

@@ -39,7 +39,7 @@ const AccountChangeScreen = () => {
         resetModificationForm,
     } = useAccountModificationStore();
 
-     const { currentUser } = useUserQueryLoginStore();
+   const { currentUser } = useUserQueryLoginStore();
 
 
     const handleUpdatePassword = async () => {
@@ -48,14 +48,11 @@ const AccountChangeScreen = () => {
             Alert.alert("Validation Error", "New password cannot be empty.");
             return;
         }
-        // Optional: Add more password validation (length, complexity) here
 
         const result = await updatePassword();
         if (result.success) {
             Alert.alert("Success", "Password updated successfully.");
-            // No navigation needed, user stays on this screen
         } else if (result.error) {
-             // Error is displayed by the UI Text element
         }
     };
 
@@ -65,14 +62,11 @@ const AccountChangeScreen = () => {
             Alert.alert("Validation Error", "New phone number cannot be empty.");
             return;
         }
-        // Optional: Add phone number format validation here
 
         const result = await updatePhoneNumber();
         if (result.success) {
             Alert.alert("Success", "Phone number updated successfully.");
-             // No navigation needed
         } else if (result.error) {
-             // Error is displayed by the UI Text element
         }
     };
 
@@ -94,10 +88,8 @@ const AccountChangeScreen = () => {
                         const result = await deleteAccount();
                         if (result.success) {
                             Alert.alert("Success", "Account deleted successfully.");
-                            // Navigate to login screen after deletion
-                            router.replace('/login'); // Assuming '/login' is your login route
+                            router.replace('/login');
                         } else if (result.error) {
-                            // Error is displayed by the UI Text element
                         }
                     }
                 }
@@ -105,7 +97,6 @@ const AccountChangeScreen = () => {
         );
     };
 
-     // Clear form state when component unmounts
      React.useEffect(() => {
          return () => {
              resetModificationForm();
@@ -122,7 +113,6 @@ const AccountChangeScreen = () => {
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <Text style={styles.header}>Account Settings</Text>
 
-                {/* Change Password Section */}
                 <View style={styles.section}>
                     <Text style={styles.sectionHeader}>Change Password</Text>
                     <TextInput
@@ -147,7 +137,6 @@ const AccountChangeScreen = () => {
                     {updateError && <Text style={styles.errorText}>{updateError}</Text>}
                 </View>
 
-                {/* Change Phone Number Section */}
                 <View style={styles.section}>
                     <Text style={styles.sectionHeader}>Change Phone Number</Text>
                     <TextInput
@@ -172,7 +161,6 @@ const AccountChangeScreen = () => {
                     {updateError && <Text style={styles.errorText}>{updateError}</Text>}
                 </View>
 
-                {/* Delete Account Section */}
                 <View style={styles.section}>
                     <Text style={styles.sectionHeader}>Delete Account</Text>
                      <TouchableOpacity
@@ -189,14 +177,13 @@ const AccountChangeScreen = () => {
                      {deleteError && <Text style={styles.errorText}>{deleteError}</Text>}
                 </View>
 
-                 {/* Add spacing at the bottom */}
                  <View style={{ height: 40 }} />
 
             </ScrollView>
              </KeyboardAvoidingView>
 
              <View style={styles.backButtonContainer}>
-                 <TouchableOpacity onPress={() => router.replace('../account_settings')}> {/* Adjust path to your profile screen */}
+                 <TouchableOpacity onPress={() => router.replace('../account_settings')}>
                      <Text style={styles.backButtonText}>Back</Text>
                  </TouchableOpacity>
              </View>
@@ -271,10 +258,10 @@ const styles = StyleSheet.create({
          position: 'absolute',
          bottom: 20,
          right: 20,
-     },
+    },
      backButtonText: {
          fontSize: 16,
-     },
+    },
 });
 
 export default AccountChangeScreen;
