@@ -1,18 +1,32 @@
-import { Ionicons } from '@expo/vector-icons';
-import React, { useState, useEffect } from 'react';
-import { Dimensions, Image as RNImage, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router'; 
-import * as ImagePicker from 'expo-image-picker';import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { FirebaseError } from 'firebase/app'; 
-import { db, app } from '@/scripts/firebaseConfig';
-import { usePostStore } from '@/constants/userHubStore';
 import { useUserQueryLoginStore } from '@/constants/store';
+import { usePostStore } from '@/constants/userHubStore';
 import { useUserProfileStore } from '@/constants/userProfileStore';
+import { storage } from '@/scripts/firebaseConfig'; // Correctly import storage
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
+import { FirebaseError } from 'firebase/app';
+// Import SettableMetadata for typing
+import { getDownloadURL, ref, uploadBytes, SettableMetadata } from 'firebase/storage';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image as RNImage,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const availableTags = ['Safety', 'Tips', 'Facts', 'Experience'];
-const storage = getStorage(app);
+// const storage = getStorage(app); // Remove this line, storage is imported from firebaseConfig
 
 const CreatePostScreen = () => {
   const [title, setTitle] = useState('');
@@ -27,13 +41,13 @@ const CreatePostScreen = () => {
   useEffect(() => {
     if (Platform.OS !== 'web') {
       const requestPermissions = async () => {
-        console.log("[CreatePostScreen] Requesting media library permissions...");
+        console.log('[CreatePostScreen] Requesting media library permissions...');
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert('Permission Denied', 'Sorry, we need media library permissions to upload an image.');
-          console.warn("[CreatePostScreen] Media library permission denied.");
+          console.warn('[CreatePostScreen] Media library permission denied.');
         } else {
-          console.log("[CreatePostScreen] Media library permission granted.");
+          console.log('[CreatePostScreen] Media library permission granted.');
         }
       };
       requestPermissions();
@@ -42,7 +56,7 @@ const CreatePostScreen = () => {
 
   useEffect(() => {
     if (currentUser?.id && !userInfo && !isLoadingProfile && !profileError) {
-      console.log("[CreatePostScreen] User logged in but userInfo missing. Fetching profile for ID:", currentUser.id);
+      console.log('[CreatePostScreen] User logged in but userInfo missing. Fetching profile for ID:', currentUser.id);
       fetchUserProfileData(currentUser.id);
     }
   }, [currentUser?.id, userInfo, isLoadingProfile, profileError, fetchUserProfileData]);
@@ -57,7 +71,7 @@ const CreatePostScreen = () => {
     console.log('[pickImage] Launching image library...');
     try {
       let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, 
         allowsEditing: true,
         aspect: [4, 3],
         quality: 1,
@@ -74,8 +88,8 @@ const CreatePostScreen = () => {
         setImageUri(null);
       }
     } catch (error) {
-        console.error('[pickImage] Error during image picking:', error);
-        Alert.alert('Image Picker Error', `An error occurred: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('[pickImage] Error during image picking:', error);
+      Alert.alert('Image Picker Error', `An error occurred: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -83,118 +97,91 @@ const CreatePostScreen = () => {
     router.replace('../Discover');
   };
 
- const uploadImageAsync = async (uri: string): Promise<string | null> => {
+  const uploadImageAsync = async (uri: string): Promise<string | null> => {
     console.log('[uploadImageAsync] Starting. URI:', uri);
     if (!uri) {
       console.error('[uploadImageAsync] URI is null or empty.');
-      Alert.alert("Upload Failed", "No image URI provided.");
+      Alert.alert('Upload Failed', 'No image URI provided.');
       return null;
     }
 
-    let blob: Blob | null = null;
+    let blob: Blob;
     try {
-      console.log('[uploadImageAsync] Creating blob promise using XMLHttpRequest...');
-      blob = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.onload = function () {
-          console.log('[uploadImageAsync] XHR onload triggered. Status:', xhr.status, 'ReadyState:', xhr.readyState, 'for URI:', uri);
-          
-          // MODIFIED CONDITION:
-          // For file:/// URIs, a status of 0 can indicate success.
-          // Also check xhr.response to ensure it's not null.
-          if ((xhr.status >= 200 && xhr.status < 300) || (xhr.status === 0 && uri.startsWith('file:'))) {
-            if (xhr.response) {
-              console.log('[uploadImageAsync] XHR request appears successful.');
-              resolve(xhr.response as Blob);
-            } else {
-              console.error('[uploadImageAsync] XHR response is null despite seemingly successful status.');
-              reject(new TypeError('XHR response is null for URI: ' + uri));
-            }
-          } else {
-            console.error('[uploadImageAsync] XHR failed with status:', xhr.status, 'StatusText:', xhr.statusText);
-            reject(new TypeError(`XHR request failed: status ${xhr.status}, text ${xhr.statusText} for URI: ${uri}`));
-          }
-        };
-        xhr.onerror = function (e) {
-          console.error("[uploadImageAsync] XHR onerror triggered for URI:", uri, "Event:", e);
-          reject(new TypeError("Network request failed for URI to Blob conversion (XHR onerror) for URI: " + uri));
-        };
-        xhr.onabort = function () {
-          console.error("[uploadImageAsync] XHR onabort triggered for URI:", uri);
-          reject(new Error("Blob conversion aborted (XHR onabort) for URI: " + uri));
-        };
-        xhr.ontimeout = function () {
-          console.error("[uploadImageAsync] XHR ontimeout triggered for URI:", uri);
-          reject(new Error("Blob conversion timed out (XHR ontimeout) for URI: " + uri));
-        };
-        xhr.responseType = "blob";
-        console.log(`[uploadImageAsync] XHR opening GET for URI: ${uri}`);
-        xhr.open("GET", uri, true);
-        console.log('[uploadImageAsync] XHR sending request for URI:', uri);
-        xhr.send(null);
-      });
-      console.log('[uploadImageAsync] Blob promise resolved.');
+      console.log('[uploadImageAsync] Fetching URI to create blob:', uri);
+      const response = await fetch(uri); // Use fetch to get the resource
+      console.log('[uploadImageAsync] Converting response to blob...');
+      blob = await response.blob(); // Convert the response to a blob
+      console.log(`[uploadImageAsync] Blob created. Size: ${blob.size}, Type: ${blob.type}`);
     } catch (error) {
-      console.error("[uploadImageAsync] Error during blob creation promise:", error);
-      Alert.alert("Upload Failed", `Could not prepare image for upload. Error: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('[uploadImageAsync] Error creating blob from URI:', error);
+      Alert.alert(
+        'Upload Failed',
+        `Could not prepare image for upload. Error: ${error instanceof Error ? error.message : String(error)}`
+      );
       return null;
     }
-
-    if (!blob) {
-      console.error("[uploadImageAsync] Image URI could not be converted to blob. Blob is null after promise.");
-      Alert.alert("Upload Failed", "Could not prepare image for upload. (Blob is null)");
-      return null;
-    }
-    
-    console.log(`[uploadImageAsync] Blob created. Size: ${blob.size}, Type: ${blob.type}`);
 
     if (!currentUser?.id) {
-      console.error("[uploadImageAsync] Current user ID is not available. Cannot determine storage path.");
-      Alert.alert("Upload Failed", "User information is missing. Cannot upload image.");
+      console.error('[uploadImageAsync] Current user ID is not available. Cannot determine storage path.');
+      Alert.alert('Upload Failed', 'User information is missing. Cannot upload image.');
       return null;
     }
-    const imageName = uri.substring(uri.lastIndexOf('/') + 1) || `image_${Date.now()}`;
-    // Sanitize file name slightly more for storage, replacing common problematic characters
-    const sanitizedImageName = imageName.replace(/[^a-zA-Z0-9._-\s]/g, '').replace(/\s+/g, '_'); 
-    const imagePath = `post_images/${currentUser.id}/${Date.now()}_${sanitizedImageName}`; 
+
+    // Extract filename more reliably and handle potential query parameters in URI
+    let imageName = uri.split('/').pop() || `image_${Date.now()}`;
+    // Sanitize filename: remove query params if any, then sanitize characters
+    imageName = imageName.split('?')[0];
+    const sanitizedImageName = imageName.replace(/[^a-zA-Z0-9._-]/g, '_'); // Keep dot for extension, replace others with underscore
+
+    const imagePath = `post_images/${currentUser.id}/${Date.now()}_${sanitizedImageName}`;
     console.log(`[uploadImageAsync] Storage path: ${imagePath}`);
     const storageRef = ref(storage, imagePath);
 
+    // Explicitly define metadata, especially contentType
+    const metadata: SettableMetadata = {
+      contentType: blob.type || 'image/jpeg', // Use blob's type, fallback if necessary
+    };
+    console.log('[uploadImageAsync] Upload metadata:', metadata);
+
     try {
-      console.log('[uploadImageAsync] Attempting to upload bytes...');
-      await uploadBytes(storageRef, blob); 
+      console.log('[uploadImageAsync] Attempting to upload blob with metadata...');
+      await uploadBytes(storageRef, blob, metadata); // Perform the upload with metadata
       console.log('[uploadImageAsync] UploadBytes successful.');
 
       console.log('[uploadImageAsync] Attempting to get download URL...');
       const downloadURL = await getDownloadURL(storageRef);
-      console.log("[uploadImageAsync] Image uploaded successfully. Download URL:", downloadURL);
+      console.log('[uploadImageAsync] Image uploaded successfully. Download URL:', downloadURL);
       return downloadURL;
     } catch (error) {
-      console.error("[uploadImageAsync] Error uploading image to Firebase Storage or getting URL:", error);
-      if (error instanceof FirebaseError) { 
-        console.error("[uploadImageAsync] Firebase error code:", error.code);
-        console.error("[uploadImageAsync] Firebase error message:", error.message);
-        Alert.alert("Upload Failed", `Firebase error: ${error.code}. Please check your connection and storage rules.`);
+      console.error('[uploadImageAsync] Error uploading image to Firebase Storage or getting URL:', error);
+      if (error instanceof FirebaseError) {
+        console.error('[uploadImageAsync] Firebase error code:', error.code);
+        console.error('[uploadImageAsync] Firebase error message:', error.message);
+        // Log the full error object for more details from the server if available
+        console.error('[uploadImageAsync] Firebase error object (raw):', error);
+        console.error('[uploadImageAsync] Firebase error object (JSON):', JSON.stringify(error, null, 2));
+        Alert.alert(
+          'Upload Failed',
+          `Firebase error: ${error.code}. ${error.message}. Check console for more details.`
+        );
       } else if (error instanceof Error) {
-        Alert.alert("Upload Failed", `Failed to upload image to server. Error: ${error.message}`);
+        Alert.alert('Upload Failed', `Failed to upload image to server. Error: ${error.message}`);
       } else {
-        Alert.alert("Upload Failed", `An unknown error occurred during image upload.`);
+        Alert.alert('Upload Failed', 'An unknown error occurred during image upload.');
       }
       return null;
     }
   };
 
   const handlePost = async () => {
-    console.log("[handlePost] Initiating post creation.");
+    console.log('[handlePost] Initiating post creation.');
     setPostError(null);
 
-    // Ensure currentUser and userInfo are loaded before allowing post.
-    // The button is disabled if !userInfo, but this is an extra safeguard.
     if (!currentUser?.id || !userInfo?.firstName) {
       Alert.alert('Error', 'User information is missing. Please ensure you are logged in and profile data is loaded.');
-      console.warn("[handlePost] User information missing. CurrentUser ID:", currentUser?.id, "UserInfo FirstName:", userInfo?.firstName);
+      console.warn('[handlePost] User information missing. CurrentUser ID:', currentUser?.id, 'UserInfo FirstName:', userInfo?.firstName);
       if (currentUser?.id && !userInfo) {
-        console.log("[handlePost] Attempting to re-fetch user profile for ID:", currentUser.id);
+        console.log('[handlePost] Attempting to re-fetch user profile for ID:', currentUser.id);
         fetchUserProfileData(currentUser.id);
       }
       return;
@@ -202,65 +189,57 @@ const CreatePostScreen = () => {
 
     if (!title.trim() || !description.trim() || selectedTags.length === 0) {
       Alert.alert('Validation Error', 'Title, description, and at least one tag are required.');
-      console.warn("[handlePost] Validation failed: Title, description, or tags missing.");
+      console.warn('[handlePost] Validation failed: Title, description, or tags missing.');
       return;
     }
 
     let uploadedImageUrl: string | undefined = undefined;
 
     if (imageUri) {
-      console.log("[handlePost] Attempting to upload image. URI:", imageUri);
+      console.log('[handlePost] Attempting to upload image. URI:', imageUri);
       const downloadUrl = await uploadImageAsync(imageUri);
-      console.log("[handlePost] uploadImageAsync completed. Download URL received:", downloadUrl);
+      console.log('[handlePost] uploadImageAsync completed. Download URL received:', downloadUrl);
       if (downloadUrl) {
         uploadedImageUrl = downloadUrl;
-        console.log("[handlePost] Image uploaded successfully. URL:", uploadedImageUrl);
+        console.log('[handlePost] Image uploaded successfully. URL:', uploadedImageUrl);
       } else {
-        setPostError("Image upload failed. Please try again.");
-        console.error("[handlePost] Image upload failed, downloadUrl is null or undefined. Post creation aborted.");
+        // Error message is already set by uploadImageAsync or Alert is shown
+        // setPostError("Image upload failed. Please try again."); // This might be redundant if Alert is shown
+        console.error('[handlePost] Image upload failed, downloadUrl is null or undefined. Post creation aborted.');
         return;
       }
     }
-
-    // Type for data passed to addPost; matches structure expected by store's addPost,
-    // which then adds Firestore-specific fields like Timestamp.
     const postDataForStore: {
-        userId: string;
-        userName: string;
-        userProfilePictureUrl?: string;
-        title: string;
-        description: string;
-        tags: string[];
-        imageUrl?: string;
-        // createdAt will be added by the store using Timestamp.now()
-        // but if your component needs to work with a Date object before sending, it's fine.
-        // Here, we define what we send to the store.
+      userId: string;
+      userName: string;
+      userProfilePictureUrl?: string | undefined;
+      title: string;
+      description: string;
+      tags: string[];
+      imageUrl?: string | undefined;
     } = {
-      userId: currentUser.id, // Known to be defined due to check above
-      userName: userInfo.firstName + (userInfo.lastName ? ' ' + userInfo.lastName : ''), // userInfo.firstName known
-      userProfilePictureUrl: userInfo?.profilePictureUrl || undefined,
+      userId: currentUser.id,
+      userName: userInfo.firstName + (userInfo.lastName ? ' ' + userInfo.lastName : ''),
+      userProfilePictureUrl: (userInfo?.profilePictureUrl || null) as string | undefined,
       title: title.trim(),
       description: description.trim(),
       tags: selectedTags,
     };
-
     if (uploadedImageUrl !== undefined) {
       postDataForStore.imageUrl = uploadedImageUrl;
     }
-    console.log("[handlePost] Post data prepared for store:", JSON.stringify(postDataForStore, null, 2));
 
-    // addPost in your store expects an object and internally adds `createdAt: Timestamp.now()`
-    // and other counts. So the object from component doesn't need to send these.
+    console.log('[handlePost] Post data prepared for store:', JSON.stringify(postDataForStore, null, 2));
     const result = await addPost(postDataForStore);
-    console.log("[handlePost] addPost result:", result);
+    console.log('[handlePost] addPost result:', result);
 
     if (result.success) {
       Alert.alert('Success', 'Post created successfully!');
-      console.log("[handlePost] Post created successfully, navigating to Discover.");
+      console.log('[handlePost] Post created successfully, navigating to Discover.');
       router.replace('/(tabs)/Discover');
     } else if (result.error) {
-      Alert.alert('Post Failed', result.error);
-      console.error("[handlePost] Post creation failed in addPost. Error:", result.error);
+      Alert.alert('Post Failed', result.error); // This error comes from your usePostStore
+      console.error('[handlePost] Post creation failed in addPost. Error:', result.error);
     }
   };
 
@@ -275,21 +254,24 @@ const CreatePostScreen = () => {
   }
 
   if (profileError && !userInfo) {
-    console.error("[CreatePostScreen] Profile error and no user info. Error:", profileError);
+    console.error('[CreatePostScreen] Profile error and no user info. Error:', profileError);
     return (
       <View style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
         <Ionicons name="warning-outline" size={48} color="red" />
-        <Text style={{ textAlign: 'center', color: 'red', marginBottom: 10, marginTop:10, fontSize: 16 }}>
+        <Text style={{ textAlign: 'center', color: 'red', marginBottom: 10, marginTop: 10, fontSize: 16 }}>
           Error loading user profile:
         </Text>
         <Text style={{ textAlign: 'center', color: 'red', marginBottom: 20 }}>
-            {profileError}
+          {profileError}
         </Text>
         {currentUser?.id && (
-          <TouchableOpacity style={styles.retryButton} onPress={() => {
-            console.log("[CreatePostScreen] Retry Load Profile pressed for ID:", currentUser.id);
-            fetchUserProfileData(currentUser.id);
-          }}>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => {
+              console.log('[CreatePostScreen] Retry Load Profile pressed for ID:', currentUser.id);
+              fetchUserProfileData(currentUser.id);
+            }}
+          >
             <Text style={styles.retryButtonText}>Retry Load Profile</Text>
           </TouchableOpacity>
         )}
@@ -298,44 +280,40 @@ const CreatePostScreen = () => {
   }
 
   if (!currentUser?.id) {
-    console.warn("[CreatePostScreen] No current user ID. Prompting to log in.");
+    console.warn('[CreatePostScreen] No current user ID. Prompting to log in.');
     return (
       <View style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
-         <Ionicons name="log-in-outline" size={48} color="gray" />
+        <Ionicons name="log-in-outline" size={48} color="gray" />
         <Text style={{ textAlign: 'center', color: 'gray', marginTop: 10, fontSize: 16 }}>
           Please log in to create a post.
         </Text>
-        {/* You might want a button here to navigate to login screen */}
-        {/* <TouchableOpacity onPress={() => router.push('/login')} style={styles.loginPromptButton}><Text style={styles.loginPromptButtonText}>Go to Login</Text></TouchableOpacity> */}
       </View>
     );
   }
 
-  // This state means user is logged in, profile isn't loading, but userInfo is still missing.
-  // This might happen if fetchUserProfileData failed silently or returned no data.
   if (!userInfo && currentUser?.id && !isLoadingProfile) {
-    console.warn("[CreatePostScreen] User ID exists, but no user info after loading attempts.");
+    console.warn('[CreatePostScreen] User ID exists, but no user info after loading attempts.');
     return (
       <View style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
         <Ionicons name="person-circle-outline" size={48} color="orange" />
         <Text style={{ textAlign: 'center', color: 'orange', marginTop: 10, fontSize: 16, marginBottom: 20 }}>
           User profile information could not be loaded.
         </Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => {
-            console.log("[CreatePostScreen] Retry Load Profile (from !userInfo state) pressed for ID:", currentUser.id);
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => {
+            console.log('[CreatePostScreen] Retry Load Profile (from !userInfo state) pressed for ID:', currentUser.id);
             fetchUserProfileData(currentUser.id);
-        }}>
-            <Text style={styles.retryButtonText}>Retry Load Profile</Text>
+          }}
+        >
+          <Text style={styles.retryButtonText}>Retry Load Profile</Text>
         </TouchableOpacity>
       </View>
     );
   }
-
-  // If userInfo is still null here, it means the above conditions didn't catch it,
-  // which implies currentUser.id might be present but userInfo is unexpectedly null.
-  // The Post button is disabled if !userInfo, but the UI needs to be graceful.
   if (!userInfo) {
-     return (
+    // This case should ideally be covered by the above, but as a fallback:
+    return (
       <View style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color="#0000ff" />
         <Text style={{ marginTop: 10 }}>Waiting for user information...</Text>
@@ -343,30 +321,27 @@ const CreatePostScreen = () => {
     );
   }
 
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="black" />
+          <Ionicons name="arrow-back" size={24} color="#007AFF" />
           <Text style={styles.backButtonText}> Back</Text>
         </TouchableOpacity>
-    
-        <View style={{ width: 70 }} /> {/* Spacer */}
+        {/* Placeholder for potential right-side header content if needed */}
+        <View style={{ width: 70 }} />
       </View>
-
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <TouchableOpacity onPress={pickImage} style={styles.imagePicker} disabled={isPosting}>
           {imageUri ? (
             <RNImage source={{ uri: imageUri }} style={styles.postImage} resizeMode="cover" />
           ) : (
-            <View style={{alignItems: 'center'}}>
-                <Ionicons name="image-outline" size={80} color="#aaa" />
-                <Text style={{color: '#777', marginTop: 5}}>Add an image (optional)</Text>
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons name="image-outline" size={80} color="#aaa" />
+              <Text style={{ color: '#777', marginTop: 5 }}>Add an image (optional)</Text>
             </View>
           )}
         </TouchableOpacity>
-
         <TextInput
           style={styles.titleInput}
           placeholder="Post Title..."
@@ -374,7 +349,6 @@ const CreatePostScreen = () => {
           onChangeText={setTitle}
           editable={!isPosting}
         />
-
         <TextInput
           style={styles.descriptionInput}
           placeholder="What's on your mind...?"
@@ -382,8 +356,8 @@ const CreatePostScreen = () => {
           onChangeText={setDescription}
           multiline
           editable={!isPosting}
+          keyboardAppearance="dark" // Consider if this is desired on all platforms
         />
-
         <View style={styles.tagsSection}>
           <Text style={styles.tagsLabel}>Select Tags (at least one):</Text>
           <View style={styles.tagsContainer}>
@@ -394,23 +368,21 @@ const CreatePostScreen = () => {
                 onPress={() => handleTagPress(tag)}
                 disabled={isPosting}
               >
-                <Text style={[styles.tagButtonText, selectedTags.includes(tag) && styles.selectedTagButtonText]}>{tag}</Text>
+                <Text style={[styles.tagButtonText, selectedTags.includes(tag) && styles.selectedTagButtonText]}>
+                  {tag}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
-
-        {postError && (
-          <Text style={styles.errorText}>{postError}</Text>
-        )}
-        <View style={{ height: 100 }} />
+        {postError && <Text style={styles.errorText}>{postError}</Text>}
+        <View style={{ height: 100 }} /> {/* Spacer for bottom content */}
       </ScrollView>
-
       <View style={styles.bottomButtons}>
-        <TouchableOpacity 
-            style={[styles.postButton, (isPosting || !userInfo) && styles.disabledPostButton]} 
-            onPress={handlePost} 
-            disabled={isPosting || !userInfo} // Ensure userInfo is loaded
+        <TouchableOpacity
+          style={[styles.postButton, (isPosting || !userInfo) && styles.disabledPostButton]}
+          onPress={handlePost}
+          disabled={isPosting || !userInfo}
         >
           {isPosting ? (
             <ActivityIndicator size="small" color="#fff" />
@@ -429,62 +401,46 @@ const CreatePostScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F6F8', // Softer background
+    backgroundColor: '#F4F6F8', // Light gray background for the whole screen
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'space-between', // Ensures back button is left, spacer is right
     paddingHorizontal: 15,
-    paddingTop: Platform.OS === 'android' ? 20 : 10, // More padding for Android status bar
+    paddingTop: Platform.OS === 'android' ? 20 : 10,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0', // Softer border
-    backgroundColor: 'white',
+    borderBottomColor: '#E0E0E0', // Lighter border color
+    backgroundColor: 'white', // White header background
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 5, // Make easier to tap
+    paddingVertical: 5, // Make touch target slightly larger
     paddingRight: 10,
   },
   backButtonText: {
     fontSize: 17,
     marginLeft: 6,
-    color: '#007AFF',
-  },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  profilePicture: {
-    width: 36, // Slightly smaller
-    height: 36,
-    borderRadius: 18,
-    marginRight: 8,
-    backgroundColor: '#E0E0E0', // Placeholder background
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: '600', // Semibold
-    color: '#222',
+    color: '#007AFF', // Standard iOS blue for actions
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16, // Consistent padding
+    padding: 16,
   },
   imagePicker: {
     width: '100%',
-    height: width * 0.45, // Adjusted height
-    backgroundColor: '#E9ECEF', // Lighter placeholder
+    height: width * 0.5, // Adjusted height for better aspect
+    backgroundColor: '#E9ECEF', // Lighter placeholder background
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#CED4DA', // Softer border
+    borderColor: '#CED4DA', // Softer border color
     overflow: 'hidden',
   },
   postImage: {
@@ -492,13 +448,13 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   titleInput: {
-    fontSize: 20, // Slightly smaller
+    fontSize: 20,
     fontWeight: '600',
     color: '#333',
     marginBottom: 16,
-    paddingVertical: 10,
+    paddingVertical: 12, // Increased padding
     paddingHorizontal: 12,
-    borderWidth: 1, // Border all around
+    borderWidth: 1,
     borderColor: '#CED4DA',
     backgroundColor: 'white',
     borderRadius: 6,
@@ -507,12 +463,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#444',
     marginBottom: 20,
-    paddingVertical: 10,
+    paddingVertical: 12, // Increased padding
     paddingHorizontal: 12,
-    paddingTop: 10, // Ensure padding top for multiline
+    paddingTop: 12, // Ensure consistent padding top for multiline
     borderWidth: 1,
     borderColor: '#CED4DA',
-    minHeight: 100, // Adjusted min height
+    minHeight: 120, // Increased min height
     textAlignVertical: 'top',
     backgroundColor: 'white',
     borderRadius: 6,
@@ -521,7 +477,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   tagsLabel: {
-    fontSize: 15, // Slightly smaller
+    fontSize: 15,
     fontWeight: '600',
     color: '#333',
     marginBottom: 12,
@@ -529,17 +485,15 @@ const styles = StyleSheet.create({
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8, // Use gap for spacing if supported, otherwise use margin
+    gap: 10, // Increased gap for better spacing
   },
   tagButton: {
     backgroundColor: '#E9ECEF',
-    borderRadius: 16, // More pill-like
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    // marginRight: 8, // Replaced by gap
-    // marginBottom: 8, // Replaced by gap
+    borderRadius: 18, // More rounded tags
+    paddingVertical: 8, // Increased padding
+    paddingHorizontal: 14, // Increased padding
     borderWidth: 1,
-    borderColor: 'transparent', // No border initially
+    borderColor: 'transparent',
   },
   selectedTagButton: {
     backgroundColor: '#007BFF',
@@ -547,38 +501,43 @@ const styles = StyleSheet.create({
   },
   tagButtonText: {
     fontSize: 14,
-    color: '#495057', // Darker gray
+    color: '#495057',
   },
   selectedTagButtonText: {
     color: 'white',
-    fontWeight: '500', // Medium weight
+    fontWeight: '500',
   },
   bottomButtons: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 12, // Reduced padding
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF', // Ensure bottom bar is white
   },
   postButton: {
     flexDirection: 'row',
-    backgroundColor: '#007BFF', // Changed to blue
-    paddingVertical: 10, // Slightly smaller
-    paddingHorizontal: 24,
-    borderRadius: 6,
+    backgroundColor: '#007BFF',
+    paddingVertical: 12, // Increased padding
+    paddingHorizontal: 30, // Increased padding
+    borderRadius: 8, // More rounded button
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 140,
+    minWidth: 150, // Slightly wider button
+    elevation: 2, // Android shadow
+    shadowColor: '#000', // iOS shadow
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
   },
   disabledPostButton: {
-    opacity: 0.5,
-    backgroundColor: '#ADB5BD', // Gray out when disabled
+    opacity: 0.6, // More visible when disabled
+    backgroundColor: '#ADB5BD',
   },
   postButtonText: {
-    fontSize: 16, // Slightly smaller
+    fontSize: 16,
     color: 'white',
     fontWeight: '600',
     marginRight: 8,
@@ -586,7 +545,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: 'red',
     textAlign: 'center',
-    marginBottom: 16, // Consistent margin
+    marginBottom: 16,
     fontSize: 14,
   },
   retryButton: {
@@ -594,7 +553,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 5,
-    marginTop:10,
+    marginTop: 10,
   },
   retryButtonText: {
     color: 'white',

@@ -2,7 +2,13 @@ import { db } from '@/scripts/firebaseConfig'; // Ensure this path is correct
 import { addDoc, collection, getDocs, orderBy, query, Timestamp } from 'firebase/firestore';
 import { create } from 'zustand';
 
-// Define the structure for a Post
+import { serverTimestamp } from 'firebase/firestore';
+
+// When creating the data object for Firestore:
+const postData = {
+  // ... your other fields
+  createdAt: serverTimestamp(), // Add this line
+};
 export interface Post {
     id: string; // Firestore document ID
     userId: string; // ID of the user who posted
