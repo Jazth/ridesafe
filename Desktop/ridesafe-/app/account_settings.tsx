@@ -459,9 +459,9 @@ const styles = StyleSheet.create({
         flexShrink: 1,
     },
     transmissionLabel: {
-        backgroundColor: 'green',
+        backgroundColor: 'gray',
         paddingVertical: 3,
-        paddingHorizontal: 6,
+        paddingHorizontal: 4,
         borderRadius: 4,
         justifyContent: 'center',
         alignItems: 'center',

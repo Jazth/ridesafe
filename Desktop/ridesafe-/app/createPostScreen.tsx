@@ -4,9 +4,9 @@ import { useUserProfileStore } from '@/constants/userProfileStore';
 import { storage } from '@/scripts/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import {
-    launchImageLibraryAsync,
-    MediaTypeOptions,
-    requestMediaLibraryPermissionsAsync
+    launchImageLibraryAsync,
+    MediaTypeOptions,
+    requestMediaLibraryPermissionsAsync
 } from 'expo-image-picker';
 import { router } from 'expo-router';
 import { FirebaseError } from 'firebase/app';
@@ -14,17 +14,17 @@ import { serverTimestamp } from 'firebase/firestore';
 import { getDownloadURL, ref, SettableMetadata, uploadBytes } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Platform,
-    Image as RNImage,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Platform,
+    Image as RNImage,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

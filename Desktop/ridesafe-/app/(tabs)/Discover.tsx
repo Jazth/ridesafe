@@ -1,35 +1,35 @@
+import { useUserQueryLoginStore } from '@/constants/store';
+import { db } from '@/scripts/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import {
+  arrayRemove,
+  arrayUnion,
+  collection,
+  doc,
+  getDoc,
+  increment,
+  onSnapshot,
+  orderBy,
+  query,
+  Timestamp,
+  updateDoc,
+} from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
   FlatList,
-  Image as RNImage,
+  Modal,
   RefreshControl,
+  Image as RNImage,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '@/scripts/firebaseConfig';
-import {
-  arrayRemove,
-  arrayUnion,
-  collection,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  Timestamp,
-  updateDoc,
-  increment,
-  getDoc,
-} from 'firebase/firestore';
-import { useUserQueryLoginStore } from '@/constants/store';
 
 const { width } = Dimensions.get('window');
 
@@ -473,7 +473,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     marginVertical: 8,
-    marginHorizontal: 8,
     overflow: 'hidden',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
@@ -572,7 +571,7 @@ const styles = StyleSheet.create({
     margin: 16,
     right: 10,
     bottom: 10,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#FF5722',
     width: 56,
     height: 56,
     borderRadius: 28,

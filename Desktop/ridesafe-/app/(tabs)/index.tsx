@@ -1,12 +1,12 @@
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { Image } from 'expo-image';
 import React from 'react';
 import { LogBox, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 const GOOGLE_MAPS_API_KEY = 'AIzaSyAxVriB1UsbVdbBbrWQTAnAohoxwKVLXPA';
 
 export default function HomeScreen() {
   LogBox.ignoreLogs([
     'Warning: Text strings must be rendered within a <Text> component',
+    'expo-notifications: Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go with the release of SDK 53. Use a development build instead of Expo Go. Read more at https://docs.expo.dev/develop/development-builds/introduction/.',
     'expo-notifications: Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go with the release of SDK 53. Use a development build instead of Expo Go. Read more at https://docs.expo.dev/develop/development-builds/introduction/.'
   ]);
   const initialRegion = {
@@ -18,15 +18,9 @@ export default function HomeScreen() {
 
 
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }
-    >
+    <SafeAreaView>
+      
+    
       <View style={styles.titleContainer}>
         <Text style={styles.titleText}>Welcome to the Map!</Text>
       </View>
@@ -38,7 +32,8 @@ export default function HomeScreen() {
     
       <View style={{ height: 200 }} /> 
 
-    </ParallaxScrollView>
+    </SafeAreaView>
+      
   );
 }
 

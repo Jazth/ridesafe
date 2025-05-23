@@ -317,8 +317,7 @@ const MaintenanceScreen = () => {
             title: "nag alarm",
             body: ' 10-second testing lang .',
             data: { data: 'test data', screen: 'maintenance-test' },
-            sound: 'default',
-             // Conditionally add channelId for Android. Using type assertion workaround.
+            sound: true,
             ...(Platform.OS === 'android' && { channelId: channelId }),
          };
 
@@ -327,12 +326,12 @@ const MaintenanceScreen = () => {
           content: testNotificationContent, // Pass the created content object
           trigger: {
             type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, // <-- FIX: Specify the type for seconds trigger
-            seconds: 10, // Schedule 10 seconds from now
-            repeats: false, // Don't repeat the test notification
+            seconds: 5, 
+            repeats: false, 
+           
           },
         });
-
-        // Alert.alert("Test Notification Scheduled", "A test notification should appear in about 10 seconds.");
+      
 
     } catch (error) {
         console.error(`Failed to schedule test notification:`, error);

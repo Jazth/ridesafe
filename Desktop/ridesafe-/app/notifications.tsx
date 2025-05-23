@@ -1,33 +1,30 @@
+import { useUserQueryLoginStore } from '@/constants/store'; // Ensure this path is correct
+import { db } from '@/scripts/firebaseConfig'; // Ensure this path is correct
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  Timestamp, // For fetching user details
+  where
+} from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  RefreshControl,
   Image as RNImage,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Alert,
-  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '@/scripts/firebaseConfig'; // Ensure this path is correct
-import {
-  collection,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  Timestamp,
-  getDoc, // For fetching user details
-  where,   // For querying posts by userId
-  QuerySnapshot,
-  DocumentData,
-  getDocs,
-} from 'firebase/firestore';
-import { useUserQueryLoginStore } from '@/constants/store'; // Ensure this path is correct
 
 // From discover.tsx - ensure these are consistent or imported from a shared types file
 export interface Post {
@@ -205,7 +202,7 @@ const ActivityScreen = () => {
     // Navigate to the post that was liked
     if (activity.postId) {
       // router.push(`/post/${activity.postId}`); // Adjust route as needed
-      Alert.alert("Activity Tapped", `User ${activity.liker.firstName} liked your post: ${activity.postTitle}`);
+      Alert.alert("Notification", `User ${activity.liker.firstName} liked your post: ${activity.postTitle}`);
     }
   };
 
