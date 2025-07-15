@@ -1,31 +1,22 @@
+import { useUserQueryLoginStore } from '@/constants/store';
+import { useUserProfileStore } from '@/constants/userProfileStore';
+import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
+import * as Notifications from 'expo-notifications';
+import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// --- Import Expo Notification dependencies ---
-import * as Notifications from 'expo-notifications';
-// ----------------------------------------------
-
-// Import the user profile store to access user's vehicles, loading state, and update action
-import { useUserProfileStore } from '@/constants/userProfileStore';
-// Import the login store to get the current user's ID
-import { useUserQueryLoginStore } from '@/constants/store';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-
-// --- Expo Notifications Setup (Consider moving this to your app's root file like App.tsx or _layout.tsx) ---
-// This handler determines how notifications are displayed when the app is in the foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true, // Set this to true to show the alert banner
-    shouldPlaySound: false, // Or true if you want sound
-    shouldSetBadge: false, // Or true to update the badge count
-    shouldShowBanner: true, // Important for Android foreground display
-    shouldShowList: true,   // Important for Android foreground display in the notification list
+    shouldShowAlert: true,
+    shouldPlaySound: true, 
+    shouldSetBadge: false, 
+    shouldShowBanner: true, 
+    shouldShowList: true,   
   }),
 });
-// ----------------------------------------------------------------------------------------------------------
 
 
 // Static list of maintenance items for Cars

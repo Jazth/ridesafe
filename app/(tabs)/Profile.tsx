@@ -6,14 +6,14 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, SettableMetadata, uploadBytes } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert, // Renamed to avoid conflict
-    Platform,
-    Image as RNImage,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert, // Renamed to avoid conflict
+  Platform,
+  Image as RNImage,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 16,
-    color: '#333',
+    color: 'white',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
    actionButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#FF5722',
     paddingVertical: 12,
     paddingHorizontal: 25,
     borderRadius: 8,

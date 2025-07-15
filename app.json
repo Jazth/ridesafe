@@ -8,8 +8,16 @@
     "scheme": "ridesafe",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "androidStatusBar": {
+      "hidden": true,
+      "translucent": true
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jazmerr.ridesafe",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -50,10 +58,18 @@
       [
         "expo-maps",
         {
+          "apiKey": "AIzaSyAxVriB1UsbVdbBbrWQTAnAohoxwKVLXPA",
           "requestLocationPermission": true,
-          "locationPermission": "Allow $(PRODUCT_NAME) to use your location"
+          "locationPermission": "Allow Ridesafe to use your location"
         }
-      ]
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow this app to use your location."
+        }
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
