@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useUserQueryLoginStore } from '@/constants/store';
 import { useUserProfileStore, Vehicle } from '@/constants/userProfileStore';
 import { db } from '@/scripts/firebaseConfig';
@@ -13,6 +14,10 @@ import {
   query,
   Timestamp,
 } from 'firebase/firestore';
+=======
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,9 +28,29 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+<<<<<<< HEAD
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+=======
+  View,
+  Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Picker } from '@react-native-picker/picker';
+import { db } from '@/scripts/firebaseConfig';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  Timestamp,
+} from 'firebase/firestore';
+import { useUserQueryLoginStore } from '@/constants/store';
+import { useUserProfileStore, Vehicle } from '@/constants/userProfileStore';
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
 
 const { width } = Dimensions.get('window');
 
@@ -186,6 +211,10 @@ const MaintenanceLogScreen = () => {
       // Path should be: users/{userId}/vehicles/{vehicleId}/maintenance_log/{logId}
       const logDocRef = doc(db, 'users', currentUser.id, 'vehicles', selectedVehicleId, 'maintenance_log', logId);
       await deleteDoc(logDocRef);
+<<<<<<< HEAD
+=======
+      Alert.alert("Success", "Maintenance log entry deleted.");
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
     } catch (error) {
       console.error("Error deleting log entry:", error);
       Alert.alert("Error", "Failed to delete log entry.");

@@ -105,11 +105,9 @@ const userMarker = userLocation
       id: "user-marker", 
     }
   : null;
-
   return (
     <View style={styles.container}>
       {hasLocationPermission ? (
-        
         <GoogleMaps.View
           properties={{
            selectionEnabled: true,

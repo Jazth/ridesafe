@@ -4,9 +4,15 @@ import { useUserProfileStore } from '@/constants/userProfileStore';
 import { storage } from '@/scripts/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import {
+<<<<<<< HEAD
     launchImageLibraryAsync,
     MediaTypeOptions,
     requestMediaLibraryPermissionsAsync
+=======
+    launchImageLibraryAsync,
+    MediaTypeOptions,
+    requestMediaLibraryPermissionsAsync
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
 } from 'expo-image-picker';
 import { router } from 'expo-router';
 import { FirebaseError } from 'firebase/app';
@@ -14,6 +20,7 @@ import { serverTimestamp } from 'firebase/firestore';
 import { getDownloadURL, ref, SettableMetadata, uploadBytes } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
+<<<<<<< HEAD
     ActivityIndicator,
     Alert,
     Dimensions,
@@ -25,6 +32,19 @@ import {
     TextInput,
     TouchableOpacity,
     View,
+=======
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Platform,
+    Image as RNImage,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -319,7 +339,11 @@ const CreatePostScreen = () => {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
+<<<<<<< HEAD
           <Ionicons name="arrow-back" size={24} color="#FF5722" />
+=======
+          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
           <Text style={styles.backButtonText}> Back</Text>
         </TouchableOpacity>
         <View style={{ width: 70 }} />
@@ -416,7 +440,11 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontSize: 17,
     marginLeft: 6,
+<<<<<<< HEAD
     color: '#FF5722',
+=======
+    color: '#007AFF',
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
   },
   scrollView: {
     flex: 1,
@@ -512,7 +540,11 @@ const styles = StyleSheet.create({
   },
   postButton: {
     flexDirection: 'row',
+<<<<<<< HEAD
     backgroundColor: '#FF5722',
+=======
+    backgroundColor: '#007BFF',
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 8,
