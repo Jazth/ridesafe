@@ -237,7 +237,7 @@ const ProfileSettingsScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0F2F5', // Light background for the whole screen
+    backgroundColor: '#F0F2F5', 
   },
   container: {
     flex: 1,
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 15,
-    position: 'relative', // For positioning the add icon
+    position: 'relative', 
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
