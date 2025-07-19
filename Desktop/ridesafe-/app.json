@@ -16,12 +16,18 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "statusBar": {
+        "visible": false,
+        "backgroundColor": "#000000",
+        "barStyle": "dark-content"
+      },
       "edgeToEdgeEnabled": true,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyAxVriB1UsbVdbBbrWQTAnAohoxwKVLXPA"
         }
-      }
+      },
+      "package": "com.jazmerr.ridesafe"
     },
     "web": {
       "bundler": "metro",
@@ -39,10 +45,16 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-build-properties"    
+      "expo-build-properties"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "02ad1e77-239c-487c-8f4b-783c6a907d04"
+      }
     }
   }
 }
