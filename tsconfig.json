@@ -1,13 +1,9 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-<<<<<<< HEAD
      "jsx": "react",  // Add this line to enable JSX support
     "module": "esnext",  // Or "commonjs" if you prefer, depending on your build setup
     "target": "esnext",  // You can adjust this based on your needs
-=======
-    "strict": true,
->>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
     "paths": {
       "@/*": [
         "./*"
