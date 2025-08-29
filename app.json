@@ -8,25 +8,48 @@
     "scheme": "ridesafe",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+<<<<<<< HEAD
     "ios": {
       "supportsTablet": true
+=======
+    "androidStatusBar": {
+      "hidden": true,
+      "translucent": true
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jazmerr.ridesafe",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+<<<<<<< HEAD
       "statusBar": {
         "visible": false,
         "backgroundColor": "#000000",
         "barStyle": "dark-content"
       },
+=======
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
       "edgeToEdgeEnabled": true,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyAxVriB1UsbVdbBbrWQTAnAohoxwKVLXPA"
         }
       },
+<<<<<<< HEAD
+=======
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
       "package": "com.jazmerr.ridesafe"
     },
     "web": {
@@ -45,7 +68,28 @@
           "backgroundColor": "#ffffff"
         }
       ],
+<<<<<<< HEAD
       "expo-build-properties"
+=======
+      "expo-build-properties",
+      "expo-notifications",
+      "expo-web-browser",
+      [
+        "expo-maps",
+        {
+          "apiKey": "AIzaSyAxVriB1UsbVdbBbrWQTAnAohoxwKVLXPA",
+          "requestLocationPermission": true,
+          "locationPermission": "Allow Ridesafe to use your location"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow this app to use your location."
+        }
+      ],
+      "expo-font"
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
     ],
     "experiments": {
       "typedRoutes": true

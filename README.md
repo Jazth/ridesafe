@@ -1,3 +1,10 @@
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
@@ -48,3 +55,12 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+"# ridesafe" 
+a9de1dc36e083204a7b311ef4fa3ca9e1bd80e77
+=======
+37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5

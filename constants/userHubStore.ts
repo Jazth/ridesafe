@@ -99,8 +99,16 @@ export const usePostStore = create<PostStore>((set, get) => ({
 
     addPost: async (postData) => {
         set({ isPosting: true, postError: null });
+<<<<<<< HEAD
 
         // Add validation here if not already done in the component
+=======
+<<<<<<< HEAD
+=======
+
+        // Add validation here if not already done in the component
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
         if (!postData.userId || !postData.userName || !postData.title.trim() || !postData.description.trim() || !postData.tags || postData.tags.length === 0) {
              const errorMsg = "Title, description, user info, and at least one tag are required.";
              set({ postError: errorMsg, isPosting: false });
@@ -110,8 +118,18 @@ export const usePostStore = create<PostStore>((set, get) => ({
 
         const postToSave = {
             ...postData,
+<<<<<<< HEAD
             createdAt: Timestamp.now(), // Add server timestamp
             likesCount: 0, // Initialize counts
+=======
+<<<<<<< HEAD
+            createdAt: Timestamp.now(), 
+            likesCount: 0,
+=======
+            createdAt: Timestamp.now(), // Add server timestamp
+            likesCount: 0, // Initialize counts
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
             savesCount: 0,
             commentsCount: 0,
         };

@@ -6,6 +6,19 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, SettableMetadata, uploadBytes } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+  ActivityIndicator,
+  Alert, // Renamed to avoid conflict
+  Platform,
+  Image as RNImage,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+=======
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
     ActivityIndicator,
     Alert, // Renamed to avoid conflict
     Platform,
@@ -14,6 +27,10 @@ import {
     Text,
     TouchableOpacity,
     View,
+<<<<<<< HEAD
+=======
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -237,7 +254,15 @@ const ProfileSettingsScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+<<<<<<< HEAD
     backgroundColor: '#F0F2F5', // Light background for the whole screen
+=======
+<<<<<<< HEAD
+    backgroundColor: '#F0F2F5', 
+=======
+    backgroundColor: '#F0F2F5', // Light background for the whole screen
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
   },
   container: {
     flex: 1,
@@ -254,7 +279,15 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 16,
+<<<<<<< HEAD
     color: '#333',
+=======
+<<<<<<< HEAD
+    color: 'white',
+=======
+    color: '#333',
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -271,7 +304,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 15,
+<<<<<<< HEAD
     position: 'relative', // For positioning the add icon
+=======
+<<<<<<< HEAD
+    position: 'relative', 
+=======
+    position: 'relative', // For positioning the add icon
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -358,7 +399,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
    actionButton: {
+<<<<<<< HEAD
     backgroundColor: '#007AFF',
+=======
+<<<<<<< HEAD
+    backgroundColor: '#FF5722',
+=======
+    backgroundColor: '#007AFF',
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
     paddingVertical: 12,
     paddingHorizontal: 25,
     borderRadius: 8,

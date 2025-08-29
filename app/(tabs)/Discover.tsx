@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
 import { useUserQueryLoginStore } from '@/constants/store';
 import { db } from '@/scripts/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,21 +19,65 @@ import {
   Timestamp,
   updateDoc,
 } from 'firebase/firestore';
+<<<<<<< HEAD
+=======
+=======
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
   FlatList,
+<<<<<<< HEAD
   Modal,
   RefreshControl,
   Image as RNImage,
+=======
+<<<<<<< HEAD
+  Modal,
+  RefreshControl,
+  Image as RNImage,
+=======
+  Image as RNImage,
+  RefreshControl,
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+<<<<<<< HEAD
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+=======
+<<<<<<< HEAD
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+=======
+  Modal,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { db } from '@/scripts/firebaseConfig';
+import {
+  arrayRemove,
+  arrayUnion,
+  collection,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  Timestamp,
+  updateDoc,
+  increment,
+  getDoc,
+} from 'firebase/firestore';
+import { useUserQueryLoginStore } from '@/constants/store';
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
 
 const { width } = Dimensions.get('window');
 
@@ -364,6 +412,10 @@ const DiscoverScreen = () => {
     }
     router.push('/createPostScreen');
   };
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
   const notificationpage = () => {
     router.replace('../notifications')
   }
@@ -371,6 +423,16 @@ const DiscoverScreen = () => {
     <View style={styles.screenHeader}>
       <Text style={styles.screenTitle}>Discover</Text>
       <TouchableOpacity style={styles.notificationIcon} onPress={notificationpage}>
+<<<<<<< HEAD
+=======
+=======
+
+  const renderHeader = () => (
+    <View style={styles.screenHeader}>
+      <Text style={styles.screenTitle}>Discover</Text>
+      <TouchableOpacity style={styles.notificationIcon}>
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
         <Ionicons name="notifications-outline" size={26} color="#FF5722" />
       </TouchableOpacity>
     </View>
@@ -473,6 +535,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     marginVertical: 8,
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+    marginHorizontal: 8,
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
     overflow: 'hidden',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
@@ -571,7 +640,15 @@ const styles = StyleSheet.create({
     margin: 16,
     right: 10,
     bottom: 10,
+<<<<<<< HEAD
     backgroundColor: '#FF5722',
+=======
+<<<<<<< HEAD
+    backgroundColor: '#FF5722',
+=======
+    backgroundColor: '#007AFF',
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
     width: 56,
     height: 56,
     borderRadius: 28,

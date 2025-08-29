@@ -1,3 +1,20 @@
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+import { FirebaseApp, getApp, getApps, initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBnvKuPK2i51kqzF4c-e0h6AFkU4NFon0M", 
+  authDomain: "ridesafely-258c0.firebaseapp.com",
+  projectId: "ridesafely-258c0",
+  storageBucket: "ridesafely-258c0.firebasestorage.app",
+  messagingSenderId: "1053665185198",
+  appId: "1:1053665185198:web:97130eb1e472c0657f8c3f",
+  measurementId: "G-8Y3N7LY01D" 
+=======
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
 // firebaseConfig.ts
 import { initializeApp, getApp, getApps, FirebaseApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
@@ -13,6 +30,10 @@ const firebaseConfig = {
   messagingSenderId: "1053665185198",
   appId: "1:1053665185198:web:97130eb1e472c0657f8c3f",
   measurementId: "G-8Y3N7LY01D" // Optional
+<<<<<<< HEAD
+=======
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
 };
 
 let app: FirebaseApp;
@@ -26,9 +47,18 @@ if (getApps().length === 0) {
 }
 
 const db = getFirestore(app);
+<<<<<<< HEAD
 
 // Explicitly pass the full gs:// URL to getStorage()
 // This is the user-confirmed gs:// path.
+=======
+<<<<<<< HEAD
+=======
+
+// Explicitly pass the full gs:// URL to getStorage()
+// This is the user-confirmed gs:// path.
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
 const storage = getStorage(app, "gs://ridesafely-258c0.firebasestorage.app");
 console.log("Firebase Storage initialized for bucket: gs://ridesafely-258c0.firebasestorage.app");
 

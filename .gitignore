@@ -1,4 +1,10 @@
+<<<<<<< HEAD
 # Dependencies
+=======
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
 node_modules/
 
 # Expo
@@ -7,7 +13,11 @@ dist/
 web-build/
 expo-env.d.ts
 
+<<<<<<< HEAD
 # Native files
+=======
+# Native
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
 .kotlin/
 *.orig.*
 *.jks
@@ -16,14 +26,22 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+<<<<<<< HEAD
 # Metro Bundler
 .metro-health-check*
 
 # Debug logs
+=======
+# Metro
+.metro-health-check*
+
+# debug
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
 npm-debug.*
 yarn-debug.*
 yarn-error.*
 
+<<<<<<< HEAD
 # macOS system files
 .DS_Store
 *.pem
@@ -49,3 +67,16 @@ ios/
 
 ElevatedDiagnostics/
 
+=======
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+app-example
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5

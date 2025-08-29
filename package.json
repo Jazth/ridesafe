@@ -13,35 +13,88 @@
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
     "@react-native-community/datetimepicker": "^8.3.0",
+<<<<<<< HEAD
     "@react-native-picker/picker": "^2.11.1",
+=======
+<<<<<<< HEAD
+    "@react-native-picker/picker": "2.11.1",
+    "@react-navigation/bottom-tabs": "^7.3.10",
+    "@react-navigation/elements": "^2.3.8",
+    "@react-navigation/native": "^7.1.6",
+    "eas-cli": "^16.15.0",
+    "expo": "53.0.17",
+    "expo-blur": "~14.1.4",
+    "expo-build-properties": "~0.14.8",
+    "expo-constants": "~17.1.7",
+    "expo-dev-client": "~5.2.4",
+    "expo-font": "~13.3.2",
+    "expo-haptics": "~14.1.4",
+    "expo-image": "~2.3.2",
+    "expo-image-picker": "^16.1.4",
+    "expo-linking": "~7.1.7",
+    "expo-location": "~18.1.6",
+    "expo-maps": "^0.11.0",
+    "expo-navigation-bar": "~4.2.7",
+    "expo-notifications": "^0.31.2",
+    "expo-router": "~5.1.3",
+    "expo-splash-screen": "~0.30.10",
+    "expo-status-bar": "~2.2.3",
+    "expo-symbols": "~0.4.4",
+    "expo-system-ui": "~5.0.10",
+    "expo-web-browser": "~14.2.0",
+    "firebase": "^11.7.3",
+    "marker": "^0.1.2",
+    "polyline": "^0.2.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-native": "0.79.4",
+    "react-native-gesture-handler": "~2.24.0",
+    "react-native-google-places-autocomplete": "^2.5.7",
+=======
+    "@react-native-picker/picker": "^2.11.0",
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.6",
     "expo": "~53.0.9",
     "expo-blur": "~14.1.4",
+<<<<<<< HEAD
     "expo-build-properties": "~0.14.6",
     "expo-constants": "~17.1.6",
     "expo-dev-client": "~5.2.4",
+=======
+    "expo-constants": "~17.1.6",
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
     "expo-font": "~13.3.1",
     "expo-haptics": "~14.1.4",
     "expo-image": "~2.1.7",
     "expo-image-picker": "^16.1.4",
     "expo-linking": "~7.1.5",
+<<<<<<< HEAD
     "expo-location": "^18.1.6",
     "expo-maps": "^0.11.0",
     "expo-navigation-bar": "~4.2.4",
     "expo-notifications": "^0.31.4",
+=======
+    "expo-navigation-bar": "~4.2.4",
+    "expo-notifications": "^0.31.2",
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
     "expo-router": "~5.0.6",
     "expo-splash-screen": "~0.30.8",
     "expo-status-bar": "~2.2.3",
     "expo-symbols": "~0.4.4",
     "expo-system-ui": "~5.0.7",
     "expo-web-browser": "~14.1.6",
+<<<<<<< HEAD
     "firebase": "^11.10.0",
+=======
+    "firebase": "^11.7.3",
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.2",
     "react-native-gesture-handler": "~2.24.0",
+<<<<<<< HEAD
     "react-native-immersive": "^2.0.0",
     "react-native-maps": "^1.23.8",
     "react-native-paper": "^5.14.3",
@@ -49,6 +102,19 @@
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "~4.10.0",
     "react-native-vector-icons": "^10.2.0",
+=======
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+    "react-native-immersive": "^2.0.0",
+    "react-native-paper": "^5.14.3",
+    "react-native-reanimated": "~3.17.4",
+    "react-native-safe-area-context": "5.4.0",
+<<<<<<< HEAD
+    "react-native-screens": "~4.11.1",
+    "react-native-vector-icons": "^10.2.0",
+=======
+    "react-native-screens": "~4.10.0",
+>>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
+>>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5",
     "uuid": "^11.1.0",
