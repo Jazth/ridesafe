@@ -362,7 +362,7 @@ const DiscoverScreen = () => {
       Alert.alert("Action Required", "Please log in to create a post.");
       return;
     }
-    router.push('/createPostScreen');
+    router.replace('../createPostScreen');
   };
   const notificationpage = () => {
     router.replace('../notifications')
