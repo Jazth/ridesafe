@@ -459,27 +459,9 @@ const styles = StyleSheet.create({
         flexShrink: 1,
     },
     transmissionLabel: {
-<<<<<<< HEAD
         backgroundColor: 'gray',
         paddingVertical: 3,
         paddingHorizontal: 4,
-=======
-<<<<<<< HEAD
-        backgroundColor: 'gray',
-        paddingVertical: 3,
-        paddingHorizontal: 4,
-=======
-<<<<<<< HEAD
-        backgroundColor: 'gray',
-        paddingVertical: 3,
-        paddingHorizontal: 4,
-=======
-        backgroundColor: 'green',
-        paddingVertical: 3,
-        paddingHorizontal: 6,
->>>>>>> 37131de55e8a1344d5b8276595e16875b0564bf4
->>>>>>> 6d11d91f191d747b1e3937cdd953aaf6a6cf41b5
->>>>>>> 16ca4f3c46b7bddd4a5e6901e08676df1379102e
         borderRadius: 4,
         justifyContent: 'center',
         alignItems: 'center',
