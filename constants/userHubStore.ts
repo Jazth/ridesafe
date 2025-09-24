@@ -1,6 +1,7 @@
 import { db } from '@/scripts/firebaseConfig'; // Ensure this path is correct
 import { addDoc, collection, getDocs, orderBy, query, Timestamp } from 'firebase/firestore';
 import { create } from 'zustand';
+
 import { serverTimestamp } from 'firebase/firestore';
 
 // When creating the data object for Firestore:
@@ -37,9 +38,13 @@ interface PostActions {
     setPosts: (posts: Post[]) => void;
     setIsLoadingPosts: (isLoading: boolean) => void;
     setPostsError: (error: string | null) => void;
+
     setIsPosting: (isPosting: boolean) => void;
     setPostError: (error: string | null) => void;
+
+    // Action to fetch posts from Firestore
     fetchPosts: () => Promise<void>;
+    // Action to add a new post to Firestore and the store
     addPost: (postData: {
         userId: string;
         userName: string;
@@ -73,6 +78,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
 
         try {
             const postsCollectionRef = collection(db, 'posts');
+            // Example query: order by creation date descending
             const q = query(postsCollectionRef, orderBy('createdAt', 'desc'));
             const querySnapshot = await getDocs(q);
 
@@ -93,6 +99,8 @@ export const usePostStore = create<PostStore>((set, get) => ({
 
     addPost: async (postData) => {
         set({ isPosting: true, postError: null });
+
+        // Add validation here if not already done in the component
         if (!postData.userId || !postData.userName || !postData.title.trim() || !postData.description.trim() || !postData.tags || postData.tags.length === 0) {
              const errorMsg = "Title, description, user info, and at least one tag are required.";
              set({ postError: errorMsg, isPosting: false });

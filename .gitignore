@@ -7,7 +7,7 @@ dist/
 web-build/
 expo-env.d.ts
 
-# Native files
+# Native
 .kotlin/
 *.orig.*
 *.jks
@@ -16,38 +16,22 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
-# Metro Bundler
+# Metro
 .metro-health-check*
 
-# Debug logs
+# debug
 npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS system files
+# macOS
 .DS_Store
 *.pem
 
-# Local environment files
+# local env files
 .env*.local
 
-# TypeScript build files
+# typescript
 *.tsbuildinfo
 
-
-ElevatedDiagnostics/
-AppData/
-OneDrive/
-
-# IDE and editor settings
-.idea/
-.vscode/
-
-# Build and IDE folders
-.gradle/
-.npm/
-.yarn/
-
-# Untracked Expo build directories
-android/
-ios/
+app-example
