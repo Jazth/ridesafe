@@ -2,6 +2,7 @@ import { useUserQueryLoginStore } from '@/constants/store';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
+
 import {
     ActivityIndicator,
     Dimensions,
@@ -81,16 +82,12 @@ export default function LoginScreen() {
                         onChangeText={setPasswordInput}
                         secureTextEntry
                         editable={!isLoading}
-                    />
-
-                 
+                    />           
                 </View>
-
-      
-
                 <View style={styles.buttonContainer}>
                     <TouchableOpacity
                         style={[styles.button, styles.signInButton]}
+                        testID="login-button"
                         onPress={handleSignIn}
                         disabled={isLoading}
                     >

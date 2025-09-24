@@ -3,32 +3,32 @@ import { db } from '@/scripts/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
-    arrayRemove,
-    arrayUnion,
-    collection,
-    doc,
-    getDoc, // For filtering saved posts
-    increment,
-    onSnapshot,
-    orderBy,
-    query,
-    Timestamp,
-    updateDoc,
-    where, // For filtering saved posts
+  arrayRemove,
+  arrayUnion,
+  collection,
+  doc,
+  getDoc, // For filtering saved posts
+  increment,
+  onSnapshot,
+  orderBy,
+  query,
+  Timestamp,
+  updateDoc,
+  where, // For filtering saved posts
 } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    FlatList,
-    Modal,
-    RefreshControl,
-    Image as RNImage,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  FlatList,
+  Modal,
+  RefreshControl,
+  Image as RNImage,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -77,16 +77,14 @@ const formatTimeAgo = (timestamp: Timestamp | undefined): string => {
   return `${Math.round(days / 7)}w ago`;
 };
 
-// This item component can be largely shared or adapted
 const FavoritePostItem: React.FC<{
   post: Post;
   currentUserId: string | null;
   onShowLikes: (likedBy: string[]) => void;
-  onToggleSave: (postId: string, currentSaveStatus: boolean) => void; // Renamed for clarity
+  onToggleSave: (postId: string, currentSaveStatus: boolean) => void; 
 }> = React.memo(({ post, currentUserId, onShowLikes, onToggleSave }) => {
   const [isLiked, setIsLiked] = useState(post.isLikedByCurrentUser || false);
   const [likeCount, setLikeCount] = useState(post.likesCount || 0);
-  // isSaved will be true for all items initially on this screen
   const [isSavedForThisItem, setIsSavedForThisItem] = useState(true);
   const [saveCount, setSaveCount] = useState(post.savesCount || 0);
 
@@ -94,7 +92,7 @@ const FavoritePostItem: React.FC<{
   useEffect(() => {
     setIsLiked(post.isLikedByCurrentUser || false);
     setLikeCount(post.likesCount || 0);
-    setIsSavedForThisItem(post.isSavedByCurrentUser || true); // Default to true on this screen
+    setIsSavedForThisItem(post.isSavedByCurrentUser || true); 
     setSaveCount(post.savesCount || 0);
   }, [post.isLikedByCurrentUser, post.likesCount, post.isSavedByCurrentUser, post.savesCount]);
 
@@ -168,10 +166,7 @@ const FavoritePostItem: React.FC<{
             )}
           </TouchableOpacity>
           <TouchableOpacity onPress={handleSaveToggleClick} style={styles.actionIconTouchable}>
-            {/* On this screen, the icon is always filled because it's a "favorite" */}
             <Ionicons name={'bookmark'} size={24} color={'#007AFF'} />
-            {/* Optionally display saveCount */}
-            {/* {saveCount > 0 && <Text style={styles.likeCountText}>{saveCount}</Text>} */}
           </TouchableOpacity>
         </View>
       </View>
