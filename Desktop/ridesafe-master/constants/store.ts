@@ -47,19 +47,14 @@ export const useUserQueryLoginStore = create<UserQueryLoginStore>((set, get) => 
     currentUser: null,
     isLoading: false,
     loginError: null,
-
-    // Action to update the email input (clears error on change)
+    
     setEmailInput: (email) => set({ emailInput: email, loginError: null }),
-    // Action to update the password input (clears error on change)
     setPasswordInput: (password) => set({ passwordInput: password, loginError: null }),
-
-    // Action to attempt "login" by querying Firestore for email and password
     attemptLoginWithQuery: async () => {
     set({ isLoading: true, loginError: null }); 
     const { emailInput, passwordInput } = get(); 
 
     if (!emailInput.trim() || !passwordInput.trim()) {
-        // ... (validation error handling)
         const errorMsg = "Email and Password cannot be empty.";
         set({ loginError: errorMsg, isLoading: false });
         return { success: false, error: errorMsg };
@@ -70,7 +65,6 @@ export const useUserQueryLoginStore = create<UserQueryLoginStore>((set, get) => 
         let accountRole: 'user' | 'mechanic' | undefined;
         let accountId: string | undefined;
 
-        // 1. --- Check USERS Collection ---
         let q = query(
             collection(db, "users"),
             where("email", "==", emailInput.trim()),
@@ -87,12 +81,9 @@ export const useUserQueryLoginStore = create<UserQueryLoginStore>((set, get) => 
                 ...userDataWithoutPassword
             } as UserProfile;
             
-            // Assume the role is 'user' for this collection
             accountRole = 'user'; 
             accountId = userDoc.id;
         }
-
-        // 2. --- Check MECHANICS Collection if User not found ---
         if (!loggedInUserProfile) {
             q = query(
                 collection(db, "mechanics"),
@@ -107,19 +98,14 @@ export const useUserQueryLoginStore = create<UserQueryLoginStore>((set, get) => 
                 
                 loggedInUserProfile = {
                     id: mechanicDoc.id, 
-                    // Note: Ensure your UserProfile interface can handle mechanic fields
                     ...mechanicDataWithoutPassword
                 } as UserProfile; 
-                
-                // Assume the role is 'mechanic' for this collection
                 accountRole = 'mechanic';
                 accountId = mechanicDoc.id;
             }
         }
         
-        // --- Final Result Handling ---
         if (loggedInUserProfile && accountRole) {
-            // Success: Update state and return role for navigation
             set({ 
                 currentUser: loggedInUserProfile, 
                 isLoading: false, 
@@ -127,24 +113,20 @@ export const useUserQueryLoginStore = create<UserQueryLoginStore>((set, get) => 
                 passwordInput: '' 
             });
             console.log("Logged in successfully. Role:", accountRole);
-            return { success: true, role: accountRole, id: accountId }; // 🎯 RETURN ROLE AND ID
+            return { success: true, role: accountRole, id: accountId }; 
         } else {
-            // Failure: User not found in either collection
             const errorMsg = "Invalid email or password.";
             set({ loginError: errorMsg, isLoading: false, currentUser: null });
             return { success: false, error: errorMsg };
         }
 
     } catch (error: any) {
-        // Handle any errors during the Firestore query operation
         console.error("Error during login query: ", error);
         const message = error.message || "An unexpected error occurred during login.";
         set({ loginError: message, isLoading: false, currentUser: null });
         return { success: false, error: message }; 
     }
 },
-
-    // Action to "logout" the user by clearing the currentUser state
     logout: () => {
         set({
             currentUser: null,

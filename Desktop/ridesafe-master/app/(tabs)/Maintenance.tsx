@@ -23,7 +23,6 @@ const carMaintenanceItems = [
   { id: 'brakes', name: 'Brake Pad Check', suggested: 'Every 12 months or 10,000 miles' },
   { id: 'air', name: 'Air Filter', suggested: 'Every 12 months or 10,000 miles' },
 ];
-
 const reminderOptions = [
   { label: 'No Reminder', value: 0 },
   { label: 'Remind me in 3 months', value: 3 },

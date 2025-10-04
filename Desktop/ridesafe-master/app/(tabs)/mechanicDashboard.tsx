@@ -4,7 +4,6 @@ import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export default function MechanicDashboard() {
   const requests = useBreakdownStore((state) => state.requests);
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Incoming Breakdown Requests</Text>

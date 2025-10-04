@@ -13,7 +13,6 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-
 const appLogo = require('../assets/images/logo.jpg');
 const { width } = Dimensions.get('window');
 
