@@ -1,0 +1,24 @@
+# --- CRITICAL: Native Build Output Directories ---
+# These are the largest files and MUST be excluded.
+android/app/build/
+android/.gradle/
+ios/build/
+
+# --- General Build and Cache Directories ---
+node_modules/
+.expo/
+dist/
+build/
+temp/
+coverage/
+logs/
+
+# --- IDE and System Metadata ---
+.git/
+.gitignore
+.gitattributes
+.vscode/
+.idea/
+.history/
+.local/
+**/.DS_Store

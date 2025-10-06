@@ -1,0 +1,38 @@
+import { useUserQueryLoginStore } from '@/constants/store'; // <-- Import Store
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import * as NavigationBar from 'expo-navigation-bar';
+import { Stack } from 'expo-router'; // <-- Added Redirect, SplashScreen
+import React from 'react';
+import 'react-native-reanimated';
+
+export default function RootLayout() {
+  const colorScheme = useColorScheme();
+  const { currentUser } = useUserQueryLoginStore(); // Get user state
+
+  
+  NavigationBar.setVisibilityAsync('hidden');
+  NavigationBar.setBehaviorAsync('overlay-swipe');
+
+  // Determine the initial route based on session state and role
+  let initialRoute = '/login';
+  if (currentUser) {
+    initialRoute = currentUser.role === 'mechanic' 
+      ? '/(mechanic)/mechanicDashboard' 
+      : '/(user)'; // Defaults to /index in the (user) group
+  }
+
+  return (
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        
+        <Stack.Screen name="(user)" options={{ headerShown: false }} /> 
+        <Stack.Screen name="(mechanic)" options={{ headerShown: false }} /> 
+
+        <Stack.Screen name="register" options={{ headerShown: false }} />
+        <Stack.Screen name="+not-found" options={{ headerShown: false }}/>
+      </Stack>
+    </ThemeProvider>
+  );
+}
