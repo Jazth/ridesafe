@@ -1,25 +1,23 @@
-import { useUserQueryLoginStore } from '@/constants/store'; // <-- Import Store
+import { useUserQueryLoginStore } from '@/constants/store';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import * as NavigationBar from 'expo-navigation-bar';
-import { Stack } from 'expo-router'; // <-- Added Redirect, SplashScreen
+import { Stack } from 'expo-router';
 import React from 'react';
 import 'react-native-reanimated';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const { currentUser } = useUserQueryLoginStore(); // Get user state
+  const { currentUser } = useUserQueryLoginStore();
 
   
   NavigationBar.setVisibilityAsync('hidden');
   NavigationBar.setBehaviorAsync('overlay-swipe');
-
-  // Determine the initial route based on session state and role
   let initialRoute = '/login';
   if (currentUser) {
     initialRoute = currentUser.role === 'mechanic' 
       ? '/(mechanic)/mechanicDashboard' 
-      : '/(user)'; // Defaults to /index in the (user) group
+      : '/(user)'; 
   }
 
   return (
