@@ -33,8 +33,6 @@ export default function LoginScreen() {
             clearLoginError();
         }
         console.log('Attempting login with:', { email: emailInput, password: passwordInput });
-        
-        // --- KEY CHANGE: Await the result which now contains the role ---
         const result = await attemptLoginWithQuery();
 
 
@@ -42,7 +40,7 @@ export default function LoginScreen() {
             // Check the role and navigate accordingly
             if (result.role === 'mechanic') {
                 // Navigate to the mechanic's dashboard within the (mechanic) group
-                router.replace('/mechanic/mechanicDashboard');
+                router.replace('/(tabs)/mechanic/mechanicDashboard';
             } else {
                 // Navigate to the user's default screen (index) within the (user) group
                 router.replace('/(tabs)/user'); 
