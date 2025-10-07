@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/scripts/firebaseConfig';
+import { useUserQueryLoginStore } from './store';
 
 // Define the structure for a Vehicle object, now including reminders
 export interface Vehicle {
@@ -48,35 +49,51 @@ export const useUserProfileStore = create<UserProfileStore>((set, get) => ({
 
     clearProfileState: () => set({ userInfo: null, vehicles: [], isLoadingProfile: false, profileError: null }),
 
-    fetchUserProfileData: async (userId: string) => {
-        set({ isLoadingProfile: true, profileError: null });
+    fetchUserProfileData: async () => {
+    set({ isLoadingProfile: true, profileError: null });
 
-        try {
-            const userDocRef = doc(db, 'users', userId);
-            const userDoc = await getDoc(userDocRef);
+    try {
+        const { currentUser } = useUserQueryLoginStore.getState();
+        console.log('[DEBUG] currentUser:', currentUser);
 
-            if (userDoc.exists()) {
-                const userData = userDoc.data();
-                console.log("Fetched user data from Firestore (via store action):", userData);
-                // Ensure vehicles array and reminders within vehicles are handled
-                const fetchedVehicles: Vehicle[] = userData.vehicles || [];
-                // Map over fetched vehicles to ensure 'reminders' property exists, default to empty object if not
-                const vehiclesWithReminders = fetchedVehicles.map(vehicle => ({
-                    ...vehicle,
-                    reminders: vehicle.reminders || {} // Ensure reminders is an object, even if empty
-                }));
+        const role = currentUser?.role;
+        const documentId = currentUser?.id; // ✅ Use generic ID field
+        const collectionName = role === 'mechanic' ? 'mechanics' : 'users';
 
-                set({ userInfo: userData, vehicles: vehiclesWithReminders, isLoadingProfile: false });
-            } else {
-                console.warn(`User document not found for userId: ${userId} (via store action)`);
-                set({ userInfo: null, vehicles: [], isLoadingProfile: false, profileError: "User data not found." });
-            }
-        } catch (error: any) {
-            console.error('Error fetching user data (via store action):', error);
-            const message = error.message || 'Failed to load user data.';
-            set({ userInfo: null, vehicles: [], isLoadingProfile: false, profileError: message });
+        const userDocRef = doc(db, collectionName, documentId);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+            const userData = userDoc.data();
+            console.log(`Fetched ${role} data from Firestore (via store action):`, userData);
+
+            const fetchedVehicles: Vehicle[] = userData.vehicles || [];
+            const vehiclesWithReminders = fetchedVehicles.map(vehicle => ({
+                ...vehicle,
+                reminders: vehicle.reminders || {},
+            }));
+
+            set({
+                userInfo: userData,
+                vehicles: vehiclesWithReminders,
+                isLoadingProfile: false,
+            });
+        } else {
+            console.warn(`${role} document not found for ID: ${documentId}`);
+            set({
+                userInfo: null,
+                vehicles: [],
+                isLoadingProfile: false,
+                profileError: `${role.charAt(0).toUpperCase() + role.slice(1)} data not found.`,
+            });
         }
-    },
+    } catch (error: any) {
+        console.error('Error fetching user/mechanic data:', error);
+        const message = error.message || 'Failed to load profile data.';
+        set({ userInfo: null, vehicles: [], isLoadingProfile: false, profileError: message });
+    }
+},
+
 
     // New action to update reminders for a specific vehicle
     updateVehicleReminders: async (userId: string, vehicleId: string, updatedReminders: { [itemId: string]: number }) => {

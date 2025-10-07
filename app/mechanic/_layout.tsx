@@ -1,8 +1,8 @@
-import { Tabs, Redirect } from 'expo-router';
-import { useUserQueryLoginStore } from '@/constants/store';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
+import { useUserQueryLoginStore } from '@/constants/store';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
 
 export default function MechanicTabs() {
@@ -19,14 +19,6 @@ export default function MechanicTabs() {
       <Tabs.Screen name="mechanicDashboard" options={{
         title: 'Assignments',
         tabBarIcon: ({ color, size }) => <Ionicons name="construct" size={size} color={color} />,
-      }} />
-      <Tabs.Screen name="Maintenance" options={{
-        title: 'Maintenance',
-        tabBarIcon: ({ color, size }) => <Ionicons name="build" size={size} color={color} />,
-      }} />
-      <Tabs.Screen name="Discover" options={{
-        title: 'Hub',
-        tabBarIcon: ({ color, size }) => <Ionicons name="bulb" size={size} color={color} />,
       }} />
       <Tabs.Screen name="Profile" options={{
         title: 'Profile',

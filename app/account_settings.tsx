@@ -91,52 +91,47 @@ const ProfileSettingsScreen = () => {
     const [loading, setLoading] = useState(true);
 
     const fetchUserData = async (userId: string) => {
-         useUserProfileStore.getState().setIsLoadingProfile(true);
+    useUserProfileStore.getState().setIsLoadingProfile(true);
+        
+    try {
+        const role = currentUser?.role || 'user'; // Default to 'user' for safety
+        const collectionName = role === 'mechanic' ? 'mechanics' : 'users';
+        
+        console.log(`Fetching from collection: ${collectionName}, document ID: ${userId}`);
 
-        try {
-            console.log("fetchUserData: Attempting to get user doc ref for ID:", userId);
-            const userDocRef: DocumentReference = doc(db, 'users', userId);
-            console.log("fetchUserData: After getting user doc ref.");
+        const userDocRef: DocumentReference = doc(db, collectionName, userId);
+        const userDoc = await getDoc(userDocRef);
 
-            console.log("fetchUserData: Attempting to get user doc snapshot...");
-            const userDoc = await getDoc(userDocRef);
-            console.log("fetchUserData: After getting user doc snapshot. Exists:", userDoc.exists());
+        if (userDoc.exists()) {
+            const userData = userDoc.data();
+            console.log("Fetched user data from Firestore:", userData);
 
-            if (userDoc.exists()) {
-                const userData = userDoc.data();
-                console.log("fetchUserData: Fetched user data from Firestore:", userData);
+            const fetchedVehicles = Array.isArray(userData.vehicles) ? userData.vehicles : [];
+            const vehiclesWithReminders = fetchedVehicles.map(vehicle => ({
+                ...vehicle,
+                reminders: vehicle.reminders || {}
+            }));
 
-                const fetchedVehicles = Array.isArray(userData.vehicles) ? userData.vehicles : [];
-                const vehiclesWithReminders = fetchedVehicles.map(vehicle => ({
-                    ...vehicle,
-                    reminders: vehicle.reminders || {}
-                }));
-                console.log("fetchUserData: Processed vehicles data.");
-
-
-                useUserProfileStore.getState().setUserInfo(userData);
-                useUserProfileStore.getState().setVehicles(vehiclesWithReminders);
-                console.log("fetchUserData: Updated user profile store state.");
-
-
-            } else {
-                console.warn(`fetchUserData: User document not found for userId: ${userId}`);
-                useUserProfileStore.getState().setUserInfo(null);
-                useUserProfileStore.getState().setVehicles([]);
-                useUserProfileStore.getState().setProfileError("User data not found.");
-            }
-        } catch (error: any) {
-            console.error('fetchUserData: Caught error:', error);
-            const message = error.message || 'Failed to load user data.';
+            useUserProfileStore.getState().setUserInfo(userData);
+            useUserProfileStore.getState().setVehicles(vehiclesWithReminders);
+        } else {
+            console.warn(`User document not found in ${collectionName} for userId: ${userId}`);
             useUserProfileStore.getState().setUserInfo(null);
             useUserProfileStore.getState().setVehicles([]);
-            useUserProfileStore.getState().setProfileError(message);
-            Alert.alert('Error', message);
-        } finally {
-            useUserProfileStore.getState().setIsLoadingProfile(false);
-            console.log("fetchUserData: Finally block executed. isLoadingProfile set to false.");
+            useUserProfileStore.getState().setProfileError("User data not found.");
         }
-    };
+    } catch (error: any) {
+        console.error('fetchUserData: Caught error:', error);
+        const message = error.message || 'Failed to load user data.';
+        useUserProfileStore.getState().setUserInfo(null);
+        useUserProfileStore.getState().setVehicles([]);
+        useUserProfileStore.getState().setProfileError(message);
+        Alert.alert('Error', message);
+    } finally {
+        useUserProfileStore.getState().setIsLoadingProfile(false);
+    }
+};
+
 
 
     useEffect(() => {

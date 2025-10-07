@@ -1,12 +1,14 @@
 import { useBreakdownStore } from '@/constants/callForHelp';
 import { useUserQueryLoginStore } from '@/constants/store';
 import { useUserProfileStore } from '@/constants/userProfileStore';
+import { db } from '@/scripts/firebaseConfig';
 import { Picker } from '@react-native-picker/picker';
 import * as Location from 'expo-location';
 import { GoogleMaps } from "expo-maps";
 import { GoogleMapsMapType } from 'expo-maps/build/google/GoogleMaps.types';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { Alert, Dimensions, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 export default function Index() {
   const { width, height } = Dimensions.get('window');
@@ -23,9 +25,60 @@ export default function Index() {
   const { vehicles,  fetchUserProfileData, } = useUserProfileStore();
   const GOOGLEMAPKEY = "AIzaSyAxVriB1UsbVdbBbrWQTAnAohoxwKVLXPA";
   
+const [modalStep, setModalStep] = useState('form'); // 'form', 'confirm', 'active'
+const [tempRequest, setTempRequest] = useState(null); // Holds the request details before final submit
+const [activeRequest, setActiveRequest] = useState(null);
+
   const { currentUser } = useUserQueryLoginStore();
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [transactionsModalVisible, setTransactionsModalVisible] = useState(false);
+  const [userTransactions, setUserTransactions] = useState([]);
 
+
+  // Fetch transactions for current user when modal opens
+  useEffect(() => {
+    if (!transactionsModalVisible || !currentUser?.id) return;
+
+    const q = query(
+      collection(db, 'breakdown_requests'),
+      where('userId', '==', currentUser.id),
+      where('status', 'in', ['pending', 'claimed', 'done']) // include done
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const transactions = [];
+      querySnapshot.forEach(doc => {
+        transactions.push({ id: doc.id, ...doc.data() });
+      });
+      setUserTransactions(transactions);
+    });
+
+    return () => unsubscribe();
+  }, [transactionsModalVisible, currentUser?.id]);
+
+  useEffect(() => {
+    if (!currentUser?.id) {
+      setActiveRequest(null);
+      return;
+    }
+
+    const q = query(
+      collection(db, 'breakdown_requests'),
+      where('userId', '==', currentUser.id),
+      where('status', 'in', ['pending', 'claimed'])
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      if (!querySnapshot.empty) {
+        const doc = querySnapshot.docs[0];
+        setActiveRequest({ id: doc.id, ...doc.data() });
+      } else {
+        setActiveRequest(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [currentUser?.id]);
     useEffect(() => {
       if (currentUser?.id) {
         fetchUserProfileData(currentUser.id);
@@ -71,6 +124,12 @@ export default function Index() {
     }
     return points;
   };
+  useEffect(() => {
+  setModalStep('form');
+  setTempRequest(null);
+  setModalVisible(true);
+}, []); // empty dependency array means run only once on mount
+
 
   useEffect(() => {
     let subscriber;
@@ -92,7 +151,7 @@ export default function Index() {
 
       return R * c;
     };
-
+    
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -210,6 +269,15 @@ export default function Index() {
                 : undefined
             }
           />
+          <TouchableOpacity
+            style={styles.hamburgerButton}
+            onPress={() => setTransactionsModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.hamburgerLine} />
+            <View style={styles.hamburgerLine} />
+            <View style={styles.hamburgerLine} />
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.infoButton}
@@ -220,87 +288,272 @@ export default function Index() {
           </TouchableOpacity>
 
           <Modal
-            animationType="slide"
-            transparent={true}
-            visible={modalVisible}
-            onRequestClose={() => setModalVisible(false)}
+  animationType="slide"
+  transparent={true}
+  visible={modalVisible}
+  onRequestClose={() => setModalVisible(false)}
+>
+  <View style={styles.modalBackground}>
+    <View style={styles.modalContainer}>
+
+      {modalStep === 'form' && (
+        <>
+          <Text style={styles.modalTitle}>Breakdown Details</Text>
+
+          <Text style={styles.sectionTitle}>Location:</Text>
+          <Text style={styles.infoText}>{address ?? 'Fetching address...'}</Text>
+
+          <Text style={styles.sectionTitle}>Selected Vehicle:</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={selectedVehicleId}
+              style={styles.picker}
+              onValueChange={(itemValue) => setSelectedVehicleId(itemValue)}
+            >
+              <Picker.Item label="Select a vehicle" value={null} />
+              {vehicles.map(vehicle => (
+                <Picker.Item
+                  key={vehicle.id}
+                  label={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+                  value={vehicle.id}
+                />
+              ))}
+            </Picker>
+          </View>
+
+          <Text style={styles.sectionTitle}>Reason for Breakdown:</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={reasonValue}
+              style={styles.picker}
+              onValueChange={(itemValue) => setReasonValue(itemValue)}
+            >
+              <Picker.Item label="I am not sure what malfunctioned" value="" />
+              <Picker.Item label="Tires" value="" />
+              <Picker.Item label="Transmission / Drivetrain" value="" />
+              <Picker.Item label="Steering / Suspension" value="" />
+              <Picker.Item label="Exhaust / Emissions" value="" />
+              <Picker.Item label="Engine / Ignition" value="" />
+              <Picker.Item label="Other / Unknown" value="" />
+            </Picker>
+          </View>
+
+          <TouchableOpacity
+  style={styles.callHelpButton}
+  onPress={async () => {
+    if (!selectedVehicleId || !userLocation) {
+      Alert.alert("Missing information", "Please select a vehicle and ensure location is active.");
+      return;
+    }
+
+    const request = {
+      id: Date.now().toString(),
+      userId: currentUser.id,
+      location: userLocation,
+      address: address ?? "Unknown",
+      vehicleId: selectedVehicleId,
+      reason: reasonValue || "Unknown",
+      timestamp: Date.now(),
+      status: 'pending',
+      claimedBy: null,
+    };
+
+    try {
+      const docRef = await addDoc(collection(db, 'breakdown_requests'), {
+        userId: request.userId,
+        location: request.location,
+        address: request.address,
+        vehicleId: request.vehicleId,
+        reason: request.reason,
+        status: request.status,
+        claimedBy: request.claimedBy,
+        timestamp: serverTimestamp(),
+      });
+
+      const savedRequest = { ...request, id: docRef.id };
+      useBreakdownStore.getState().addRequest(savedRequest);
+      setActiveRequest(savedRequest);
+      setModalStep('active');
+      Alert.alert("Success", "Help request sent!");
+    } catch (error) {
+      console.error("Error sending help request:", error);
+      Alert.alert("Error", "Failed to send help request. Please try again.");
+    }
+  }}
+>
+  <Text style={styles.callHelpButtonText}>Call For Help</Text>
+</TouchableOpacity>
+
+
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setModalVisible(false)}
+            activeOpacity={0.7}
           >
-           <View style={styles.modalBackground}>
-              <View style={styles.modalContainer}>
-                <Text style={styles.modalTitle}>Breakdown Details</Text>
+            <Text style={styles.closeButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </>
+      )}
+      {modalStep === 'active' && activeRequest && (
+        <View style={styles.activeRequestContainer}>
+          <Text style={styles.modalTitle}>Your Help Request</Text>
 
-                <Text style={styles.sectionTitle}>Location:</Text>
-                <Text style={styles.infoText}>{address ?? 'Fetching address...'}</Text>
+          <Text>Status: {activeRequest.status === 'pending' ? 'Pending' : 'Claimed by mechanic'}</Text>
 
-                <Text style={styles.sectionTitle}>Selected Vehicle:</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={selectedVehicleId}
-                    style={styles.picker}
-                    onValueChange={(itemValue) => setSelectedVehicleId(itemValue)}
-                  >
-                    <Picker.Item label="Select a vehicle" value={null} />
-                    {vehicles.map(vehicle => (
-                      <Picker.Item
-                        key={vehicle.id}
-                        label={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
-                        value={vehicle.id}
-                      />
-                    ))}
-                  </Picker>
-                </View>
+          {activeRequest.status === 'claimed' && activeRequest.claimedBy ? (
+            <Text>Claimed by: {activeRequest.claimedBy.name || 'A mechanic'}</Text>
+          ) : null}
 
-                <Text style={styles.sectionTitle}>Reason for Breakdown:</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={reasonValue}
-                    style={styles.picker}
-                    onValueChange={(itemValue) => setReasonValue(itemValue)}
-                  >
-                    <Picker.Item label="I am not sure what malfunctioned" value="" />
-                    <Picker.Item label="Car" value="car" />
-                    <Picker.Item label="Bike" value="bike" />
-                    <Picker.Item label="Truck" value="truck" />
-                  </Picker>
-                </View>
+          {activeRequest.status === 'pending' && (
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={async () => {
+                try {
+                  await deleteDoc(doc(db, 'breakdown_requests', activeRequest.id));
+                  Alert.alert('Cancelled', 'Your help request has been cancelled.');
+                  setActiveRequest(null);
+                  setModalStep('form'); // Reset modal step
+                  setModalVisible(false);
+                } catch (error) {
+                  Alert.alert('Error', 'Failed to cancel the request. Please try again.');
+                }
+              }}
+            >
+              <Text style={styles.cancelButtonText}>Cancel Request</Text>
+            </TouchableOpacity>
+          )}
 
-                <TouchableOpacity
-                    style={styles.callHelpButton}
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setModalVisible(false)}
+          >
+            <Text style={styles.closeButtonText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+    </View>
+  </View>
+</Modal>
+ <Modal
+  animationType="slide"
+  transparent={true}
+  visible={transactionsModalVisible}
+  onRequestClose={() => setTransactionsModalVisible(false)}
+>
+  <View style={styles.modalBackground}>
+    <View style={styles.transactionsModalContainer}>
+      <Text style={styles.modalTitle}>Your Requests History</Text>
+      <ScrollView style={{ maxHeight: 400 }}>
+        <View style={{ flexDirection: 'column' }}>
+          <Text style={styles.sectionTitle}>Pending Requests</Text>
+          {userTransactions.filter(tx => tx.status === 'pending').length === 0 ? (
+            <Text style={styles.noRequestsText}>No pending requests.</Text>
+          ) : (
+            userTransactions.filter(tx => tx.status === 'pending').map(tx => {
+              const vehicle = vehicles.find(v => v.id === tx.vehicleId);
+              return (
+                <View key={tx.id} style={styles.transactionItem}>
+                  <Text><Text style={{ fontWeight: '700' }}>Status:</Text> {tx.status}</Text>
+                  <Text>
+                    <Text style={{ fontWeight: '700' }}>Vehicle:</Text> {vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : 'Unknown'}
+                  </Text>
+                  <Text>
+                    <Text style={{ fontWeight: '700' }}>Reason:</Text> {tx.reason || 'Unknown'}
+                  </Text>
+                  <Text><Text style={{ fontWeight: '700' }}>Address:</Text> {tx.address}</Text>
+                  <Text>
+                    <Text style={{ fontWeight: '700' }}>Date:</Text> {tx.timestamp ? new Date(tx.timestamp.seconds * 1000).toLocaleString() : 'Unknown'}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
                     onPress={() => {
-                      if (!selectedVehicleId || !userLocation) {
-                        Alert.alert("Missing information", "Please select a vehicle and ensure location is active.");
-                        return;
-                      }
-
-                      useBreakdownStore.getState().addRequest({
-                        id: Date.now().toString(),
-                        userId: currentUser.id,
-                        location: userLocation,
-                        address: address ?? "Unknown",
-                        vehicleId: selectedVehicleId,
-                        reason: reasonValue || "Unknown",
-                        timestamp: Date.now(),
-                      });
-
-                      Alert.alert("Success", "Help request sent!");
-                      setModalVisible(false);
+                      Alert.alert(
+                        "Cancel Request",
+                        "Are you sure you want to cancel this request?",
+                        [
+                          { text: "No", style: "cancel" },
+                          {
+                            text: "Yes",
+                            onPress: async () => {
+                              try {
+                                await deleteDoc(doc(db, 'breakdown_requests', tx.id));
+                                Alert.alert('Request cancelled successfully');
+                              } catch (error) {
+                                Alert.alert('Error cancelling request', error.message);
+                              }
+                            }
+                          }
+                        ]
+                      );
                     }}
                   >
-                    <Text style={styles.callHelpButtonText}>Call For Help</Text>
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
                   </TouchableOpacity>
+                </View>
+              );
+            })
+          )}
 
+          <Text style={styles.sectionTitle}>Cancelled Requests</Text>
+          {userTransactions.filter(tx => tx.status === 'cancelled').length === 0 ? (
+            <Text style={styles.noRequestsText}>No cancelled requests.</Text>
+          ) : (
+            userTransactions.filter(tx => tx.status === 'cancelled').map(tx => {
+              const vehicle = vehicles.find(v => v.id === tx.vehicleId);
+              return (
+                <View key={tx.id} style={styles.transactionItem}>
+                  <Text><Text style={{ fontWeight: '700' }}>Status:</Text> {tx.status}</Text>
+                  <Text>
+                    <Text style={{ fontWeight: '700' }}>Vehicle:</Text> {vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : 'Unknown'}
+                  </Text>
+                  <Text>
+                    <Text style={{ fontWeight: '700' }}>Reason:</Text> {tx.reason || 'Unknown'}
+                  </Text>
+                  <Text><Text style={{ fontWeight: '700' }}>Address:</Text> {tx.address}</Text>
+                  <Text>
+                    <Text style={{ fontWeight: '700' }}>Date:</Text> {tx.timestamp ? new Date(tx.timestamp.seconds * 1000).toLocaleString() : 'Unknown'}
+                  </Text>
+                </View>
+              );
+            })
+          )}
 
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={() => setModalVisible(false)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.closeButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+          <Text style={styles.sectionTitle}>Approved Requests</Text>
+          {userTransactions.filter(tx => tx.status === 'approved').length === 0 ? (
+            <Text style={styles.noRequestsText}>No approved requests.</Text>
+          ) : (
+            userTransactions.filter(tx => tx.status === 'approved').map(tx => {
+              const vehicle = vehicles.find(v => v.id === tx.vehicleId);
+              return (
+                <View key={tx.id} style={styles.transactionItem}>
+                  <Text><Text style={{ fontWeight: '700' }}>Status:</Text> {tx.status}</Text>
+                  <Text>
+                    <Text style={{ fontWeight: '700' }}>Vehicle:</Text> {vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : 'Unknown'}
+                  </Text>
+                  <Text>
+                    <Text style={{ fontWeight: '700' }}>Reason:</Text> {tx.reason || 'Unknown'}
+                  </Text>
+                  <Text><Text style={{ fontWeight: '700' }}>Address:</Text> {tx.address}</Text>
+                  <Text>
+                    <Text style={{ fontWeight: '700' }}>Date:</Text> {tx.timestamp ? new Date(tx.timestamp.seconds * 1000).toLocaleString() : 'Unknown'}
+                  </Text>
+                </View>
+              );
+            })
+          )}
+        </View>
+      </ScrollView>
 
-          </Modal>
+      <TouchableOpacity
+        style={styles.closeButton}
+        onPress={() => setTransactionsModalVisible(false)}
+      >
+        <Text style={styles.closeButtonText}>Close</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
         </>
       ) : (
         <View style={styles.permissionDeniedContainer}>
@@ -316,6 +569,31 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  activeRequestContainer: {
+    // Similar to modalContainer but maybe a bit more compact
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    elevation: 10,
+    width: '100%',
+    maxWidth: 400,
+  },
+
+  cancelButton: {
+    marginTop: 20,
+    backgroundColor: '#E53935', // red color for cancel
+    paddingVertical: 12,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  cancelButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
   modalBackground: {
     flex: 1,
@@ -439,5 +717,52 @@ const styles = StyleSheet.create({
   bold: {
     fontSize: 20,
   },
+  hamburgerButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    width: 30,
+    height: 25,
+    justifyContent: 'space-between',
+    zIndex: 1000,
+  },
+  hamburgerLine: {
+    height: 3,
+    backgroundColor: 'white',
+    borderRadius: 1.5,
+  },
+
+  transactionsModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: 400,
+    elevation: 10,
+  },
+  transactionItem: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+  },
+  sectionTitles: {
+  fontWeight: '700',
+  fontSize: 16,
+  marginTop: 20,
+  marginBottom: 8,
+  borderBottomWidth: 1,
+  borderBottomColor: '#ccc',
+  paddingBottom: 4,
+},
+
+noRequestsText: {
+  textAlign: 'center',
+  marginVertical: 10,
+  fontStyle: 'italic',
+  color: '#666',
+},
+
   
 });

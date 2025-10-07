@@ -18,8 +18,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUserQueryLoginStore } from '@/constants/store';
-import { useUserProfileStore } from '@/constants/userProfileStore'; // To get userInfo and refresh it
-import { db, storage } from '@/scripts/firebaseConfig'; // Import your Firebase instances
+import { useUserProfileStore } from '@/constants/userProfileStore';
+import { db, storage } from '@/scripts/firebaseConfig';
 
 const ProfileSettingsScreen = () => {
   const router = useRouter();
@@ -36,11 +36,14 @@ const ProfileSettingsScreen = () => {
 
   // Fetch user profile data when the component mounts or currentUser.id changes
   useEffect(() => {
-    if (currentUser?.id && !userInfo && !isLoadingProfile && !profileError) {
-      console.log('[ProfileSettingsScreen] Fetching profile for ID:', currentUser.id);
-      fetchUserProfileData(currentUser.id);
-    }
-  }, [currentUser?.id, userInfo, isLoadingProfile, profileError, fetchUserProfileData]);
+  if (currentUser?.id && !userInfo && !isLoadingProfile && !profileError) {
+    console.log('[ProfileSettingsScreen] Fetching profile for ID:', currentUser.id);
+    fetchUserProfileData(currentUser.id).catch(error => {
+      console.error('[fetchUserProfileData] Error:', error);
+    });
+  }
+}, [currentUser?.id, userInfo, isLoadingProfile, profileError, fetchUserProfileData]);
+
 
   // Update localProfilePicUri when userInfo changes (e.g., after fetching or updating)
   useEffect(() => {
@@ -50,7 +53,6 @@ const ProfileSettingsScreen = () => {
       setLocalProfilePicUri(null); // Reset if no URL in userInfo
     }
   }, [userInfo?.profilePictureUrl]);
-
 
   const handleLogout = async () => {
     try {
@@ -143,7 +145,6 @@ const ProfileSettingsScreen = () => {
     }
   };
 
-
   if (isLoadingProfile && !userInfo) {
     return (
       <SafeAreaView style={[styles.container, styles.centered]}>
@@ -164,19 +165,10 @@ const ProfileSettingsScreen = () => {
       </SafeAreaView>
     );
   }
-  
+
   // Use userInfo from the store for display, fallback to currentUser if userInfo is still loading/null
   const displayName = userInfo?.firstName || currentUser.firstName || currentUser.email || 'User';
   const displayProfilePic = localProfilePicUri;
-  const viewHubPosts = () => {
-    router.replace('../viewHubPosts');
-  }
-  const viewLikedPosts = () => {
-    router.replace('../viewLikedPosts');
-  }
-  const viewFavePosts = () => {
-    router.replace('../viewFavoritePosts');
-  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -184,7 +176,7 @@ const ProfileSettingsScreen = () => {
         <View style={styles.profileHeader}>
           <TouchableOpacity onPress={pickImage} disabled={isUploading} style={styles.profilePicContainer}>
             {isUploading ? (
-              <ActivityIndicator size="large" color="#FFFFFF" style={styles.profilePicPlaceholder}/>
+              <ActivityIndicator size="large" color="#FFFFFF" style={styles.profilePicPlaceholder} />
             ) : displayProfilePic ? (
               <RNImage source={{ uri: displayProfilePic }} style={styles.profileImage} />
             ) : (
@@ -203,24 +195,9 @@ const ProfileSettingsScreen = () => {
         </View>
 
         <View style={styles.menuContainer}>
-          <TouchableOpacity style={styles.settingItem} onPress={() => router.push('/account_settings')}>
+          <TouchableOpacity style={styles.settingItem} onPress={() => router.push('/mechanic_settings')}>
             <Ionicons name="settings-outline" size={22} color="#4A4A4A" style={styles.settingIcon} />
             <Text style={styles.settingText}>Account Settings</Text>
-            <Ionicons name="chevron-forward-outline" size={22} color="#FF5722" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.settingItem} onPress={viewLikedPosts}>
-            <Ionicons name="heart-outline" size={22} color="#4A4A4A" style={styles.settingIcon} />
-            <Text style={styles.settingText}>View Liked Posts</Text>
-            <Ionicons name="chevron-forward-outline" size={22} color="#FF5722" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.settingItem} onPress={viewFavePosts}>
-            <Ionicons name="bookmark-outline" size={22} color="#4A4A4A" style={styles.settingIcon} />
-            <Text style={styles.settingText}>View Saved Posts</Text>
-            <Ionicons name="chevron-forward-outline" size={22} color="#FF5722" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.settingItem} onPress={viewHubPosts}>
-            <Ionicons name="bulb" size={22} color="#4A4A4A" style={styles.settingIcon} />
-            <Text style={styles.settingText}>View Hub Posts</Text>
             <Ionicons name="chevron-forward-outline" size={22} color="#FF5722" />
           </TouchableOpacity>
         </View>
@@ -357,7 +334,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
   },
-   actionButton: {
+  actionButton: {
     backgroundColor: '#007AFF',
     paddingVertical: 12,
     paddingHorizontal: 25,
