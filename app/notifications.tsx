@@ -239,7 +239,7 @@ const ActivityScreen = () => {
 
   const renderHeader = () => (
     <View style={styles.screenHeader}>
-      <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.push('/(tabs)/user/Discover')} style={styles.backButton}>
+      <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.push('/user/Discover')} style={styles.backButton}>
         <Ionicons name="arrow-back" size={26} color="#FF5722" />
       </TouchableOpacity>
       <Text style={styles.screenTitle}>Recent Activity</Text>

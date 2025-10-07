@@ -36,18 +36,15 @@ export default function LoginScreen() {
         const result = await attemptLoginWithQuery();
 
 
-        if (result.success) {
-            // Check the role and navigate accordingly
-            if (result.role === 'mechanic') {
-                // Navigate to the mechanic's dashboard within the (mechanic) group
-                router.replace('/(tabs)/mechanic/mechanicDashboard';
-            } else {
-                // Navigate to the user's default screen (index) within the (user) group
-                router.replace('/(tabs)/user'); 
-            }
-        } else if (result.error) {
-            // ... (Error handling)
+      if (result.success) {
+        if (result.role === 'mechanic') {
+            router.replace('/mechanic/mechanicDashboard'); 
+        } else {
+            router.replace('/user'); 
         }
+    } else if (result.error) {
+    }
+
     };
 
     const handleRegister = () => {

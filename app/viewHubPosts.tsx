@@ -226,7 +226,7 @@ const ViewHubPostsScreen = () => {
 
   const renderHeader = () => (
     <View style={styles.screenHeader}>
-        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/Profile')} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/user/Profile')} style={styles.backButton}>
             <Ionicons name="arrow-back-outline" size={26} color="#333" />
         </TouchableOpacity>
       <Text style={styles.screenTitle}>My Hub Posts</Text>

@@ -1,36 +1,36 @@
+import { useUserQueryLoginStore } from '@/constants/store'; // To get current user
+import { db } from '@/scripts/firebaseConfig'; // Your Firestore instance
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  FlatList,
-  Image as RNImage,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  Modal,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '@/scripts/firebaseConfig'; // Your Firestore instance
 import {
   arrayRemove,
   arrayUnion,
   collection,
   doc,
-  getDoc, // For fetching user details for likes list
+  getDoc, // For filtering liked posts
+  increment, // For fetching user details for likes list
   onSnapshot,
   orderBy,
   query,
   Timestamp,
   updateDoc,
   where, // For filtering liked posts
-  increment,
 } from 'firebase/firestore';
-import { useUserQueryLoginStore } from '@/constants/store'; // To get current user
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  FlatList,
+  Modal,
+  RefreshControl,
+  Image as RNImage,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -363,11 +363,11 @@ const ViewLikedPostsScreen = () => {
 
   const renderHeader = () => (
     <View style={styles.screenHeader}>
-      <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/Profile')} style={styles.backButton}>
+      <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/user/Profile')} style={styles.backButton}>
         <Ionicons name="arrow-back-outline" size={26} color="#333" />
       </TouchableOpacity>
       <Text style={styles.screenTitle}>Liked Posts</Text>
-      <View style={{ width: 26 }} /> {/* Spacer for centering title */}
+      <View style={{ width: 26 }} />
     </View>
   );
 
