@@ -8,6 +8,7 @@ import * as NavigationBar from 'expo-navigation-bar';
 
 
 import { useColorScheme } from '@/hooks/useColorScheme';
+import React from 'react';
 export default function RootLayout() {
   const colorScheme = useColorScheme(); 
   const [loaded] = useFonts({
