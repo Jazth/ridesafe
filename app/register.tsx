@@ -5,10 +5,7 @@ import React from 'react';
 import { ActivityIndicator, Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Provider as PaperProvider, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-// This component interacts with the RegistrationFormStore to collect and save user data
 export default function RegistrationFormScreen() {
-    // Destructure state and actions from the useRegistrationFormStore
     const {
         firstName,
         lastName,
@@ -102,6 +99,10 @@ export default function RegistrationFormScreen() {
         },
     };
 
+     const registerAsMechanic = () => {
+            router.replace('/mechanicRegister');
+        }
+
     return (
         <PaperProvider theme={customTheme}>
             <SafeAreaView style={styles.safeArea}>
@@ -109,7 +110,6 @@ export default function RegistrationFormScreen() {
      
                     <Text style={styles.header}>Breakdown?</Text>
                     <Text style={styles.subheader}>We've got a mechanic ready to roll to you.</Text>
-
                     <View style={styles.contInput}>
                         <TextInput
                             style={styles.input}
@@ -171,7 +171,6 @@ export default function RegistrationFormScreen() {
                             <Text style={styles.errorText}>{saveError}</Text>
                         )}
 
-                        {/* Submit Button */}
                         <View>
                             <TouchableOpacity
                                 style={styles.submitBtn}
@@ -183,6 +182,14 @@ export default function RegistrationFormScreen() {
                                 ) : (
                                     <Text style={styles.submitBtnText}>Register</Text>
                                 )}
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity
+                                style={styles.mechanicText}
+                                onPress={registerAsMechanic}
+                            >
+                            <Text style={styles.mechanicBtnText}>register as a mechanic</Text>
+                             
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -260,13 +267,25 @@ const styles = StyleSheet.create({
         width: '90%',
         alignSelf: 'center',
     },
-     backButtonContainerBottom: { // Style for the bottom-right back button container
-         position: 'absolute', // Position it absolutely
-         bottom: 20, // 20px from the bottom
-         right: 20, // 20px from the right
+    backButtonContainerBottom: {
+         position: 'absolute', 
+         bottom: 20, 
+         right: 20, 
          flexDirection: 'row'
      },
-     backButtonTextBottom: { // Style for the bottom-right back button text
+    backButtonTextBottom: { 
          fontSize: 16,
      },
+    mechanicText: {
+         marginTop: 24,
+         alignSelf: 'center',   
+    },
+    mechanicBtnText: {
+        fontSize: 16,
+        color: '#FF5722', 
+        textAlign: 'center',
+        paddingVertical: 4,
+        fontWeight: 'bold',
+    },
+
 });

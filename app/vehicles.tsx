@@ -1,22 +1,22 @@
+import { useUserQueryLoginStore } from '@/constants/store';
+import { useUserProfileStore } from '@/constants/userProfileStore';
+import { useVehicleFormStore } from '@/constants/vehicleFormStore';
+import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    View,
-    Alert,
-    ActivityIndicator,
-    ScrollView,
-    KeyboardAvoidingView,
-    Platform
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Picker } from '@react-native-picker/picker';
-import { useVehicleFormStore } from '@/constants/vehicleFormStore';
-import { useUserQueryLoginStore } from '@/constants/store';
-import { useUserProfileStore } from '@/constants/userProfileStore';
 
 
 const VehicleRegistrationScreen = () => {
@@ -170,8 +170,6 @@ const VehicleRegistrationScreen = () => {
 
             </ScrollView>
              </KeyboardAvoidingView>
-
-             {/* Back button positioned at the bottom right */}
              <View style={styles.backButtonContainer}>
                  <TouchableOpacity onPress={() => router.replace('../account_settings')}>
                      <Text style={styles.backButtonText}>Back</Text>
@@ -222,6 +220,7 @@ const styles = StyleSheet.create({
     picker: {
         height: 50,
         width: '100%',
+        color: 'black',
     },
     errorText: {
         color: 'red',

@@ -1,132 +1,148 @@
-
-import { db } from '@/scripts/firebaseConfig'; // <-- Ensure this path is correct!
-// If the 'db' import is undefined or null, you will get the "expected first argument to collection" error.
-
+import { zustandSecureStore } from '@/constants/secureStore';
+import { db } from '@/scripts/firebaseConfig';
 import { collection, getDocs, query, Timestamp, where } from 'firebase/firestore';
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
-// Interface for the user data expected from Firestore
-// Adjust this to match the actual structure of your user documents in the "users" collection
+export type UserRole = 'user' | 'mechanic';
+
 export interface UserProfile {
-    id: string; // Firestore document ID
-    email: string; // Should be unique and used for login
+    id: string;
+    email: string;
+    role: UserRole;
     firstName?: string;
     lastName?: string;
     phoneNumber?: string;
     createdAt?: Timestamp;
-    // Add any other fields you store for users (excluding the password for the state)
-    [key: string]: any; // Allows for additional properties
+    [key: string]: any;
 }
 
-// Interface for the store's state
 interface UserQueryLoginState {
-    emailInput: string;         // For the email input field
-    passwordInput: string;      // For the password input field
-    currentUser: UserProfile | null; // Holds the data of the "logged-in" user
+    emailInput: string;
+    passwordInput: string;
+    currentUser: UserProfile | null;
     isLoading: boolean;
     loginError: string | null;
 }
 
-// Interface for the store's actions
 interface UserQueryLoginActions {
     setEmailInput: (email: string) => void;
     setPasswordInput: (password: string) => void;
-    // Returns success: true on success, or success: false and an error message on failure
-    attemptLoginWithQuery: () => Promise<{ success: boolean; error?: string }>;
+    attemptLoginWithQuery: () => Promise<{ success: boolean; error?: string; role?: UserRole; id?: string }>;
     logout: () => void;
     clearLoginError: () => void;
 }
 
-// Combining state and actions
 type UserQueryLoginStore = UserQueryLoginState & UserQueryLoginActions;
 
-export const useUserQueryLoginStore = create<UserQueryLoginStore>((set, get) => ({
-    // Initial state
-    emailInput: '',
-    passwordInput: '',
-    currentUser: null,
-    isLoading: false,
-    loginError: null,
-
-    // Action to update the email input (clears error on change)
-    setEmailInput: (email) => set({ emailInput: email, loginError: null }),
-    // Action to update the password input (clears error on change)
-    setPasswordInput: (password) => set({ passwordInput: password, loginError: null }),
-
-    // Action to attempt "login" by querying Firestore for email and password
-    attemptLoginWithQuery: async () => {
-        set({ isLoading: true, loginError: null }); // Start loading, clear previous errors
-        const { emailInput, passwordInput } = get(); // Get current input values
-
-        // Basic validation
-        if (!emailInput.trim() || !passwordInput.trim()) {
-            const errorMsg = "Email and Password cannot be empty.";
-            set({ loginError: errorMsg, isLoading: false });
-            return { success: false, error: errorMsg };
-        }
-
-        try {
-            // Get a reference to the 'users' collection
-            // THIS IS WHERE THE ERROR "expected first argument to collection" OCCURS
-            // IF 'db' IS UNDEFINED OR NOT A VALID FIRESTORE INSTANCE.
-            const usersRef = collection(db, "users"); // Assuming your collection name is "users"
-
-            // Create a query to find a document matching both email and password
-            // IMPORTANT: This queries for the plain text password stored in the DB.
-            // This is INSECURE. Password hashing and secure verification (ideally server-side)
-            // is required for production apps.
-            const q = query(
-                usersRef,
-                where("email", "==", emailInput.trim()), // Case sensitivity depends on Firestore field value
-                where("password", "==", passwordInput) // Matches the exact stored password value
-            );
-
-            // Execute the query
-            const querySnapshot = await getDocs(q);
-
-            if (querySnapshot.empty) {
-                // No user found with that email and password combination
-                const errorMsg = "Invalid email or password.";
-                set({ loginError: errorMsg, isLoading: false, currentUser: null });
-                return { success: false, error: errorMsg };
-            }
-
-            const userDoc = querySnapshot.docs[0];
-
-            // Create the UserProfile object, excluding the password field for security
-            // (Assuming the password field exists in the document data, but we don't want it in state)
-            const { password, ...userDataWithoutPassword } = userDoc.data();
-            const loggedInUserProfile: UserProfile = {
-                id: userDoc.id, // Include the Firestore document ID
-                ...userDataWithoutPassword
-            } as UserProfile; // Type assertion
-
-            // Update state: set currentUser, clear loading, clear error, maybe clear password input
-            set({ currentUser: loggedInUserProfile, isLoading: false, loginError: null, passwordInput: '' });
-            console.log("User 'logged in' via query:", loggedInUserProfile);
-
-            return { success: true }; // Indicate successful login
-
-        } catch (error: any) {
-            // Handle any errors during the Firestore query operation
-            console.error("Error during login query: ", error);
-            const message = error.message || "An unexpected error occurred during login.";
-            set({ loginError: message, isLoading: false, currentUser: null });
-            return { success: false, error: message }; // Indicate failure with error message
-        }
-    },
-
-    // Action to "logout" the user by clearing the currentUser state
-    logout: () => {
-        set({
-            currentUser: null,
-            emailInput: '', // Clear inputs on logout
+export const useUserQueryLoginStore = create<UserQueryLoginStore>()(
+    persist(
+        (set, get) => ({
+            emailInput: '',
             passwordInput: '',
-            loginError: null // Clear errors on logout
-        });
-        console.log("User 'logged out'.");
-    },
+            currentUser: null,
+            isLoading: false,
+            loginError: null,
 
-    // Action to clear login errors manually if needed (e.g., when inputs change)
-    clearLoginError: () => set({ loginError: null }),
-}));
+            setEmailInput: (email) => set({ emailInput: email, loginError: null }),
+            setPasswordInput: (password) => set({ passwordInput: password, loginError: null }),
+
+            attemptLoginWithQuery: async () => {
+                set({ isLoading: true, loginError: null });
+                const { emailInput, passwordInput } = get();
+
+                if (!emailInput.trim() || !passwordInput.trim()) {
+                    const errorMsg = "Email and Password cannot be empty.";
+                    set({ loginError: errorMsg, isLoading: false });
+                    return { success: false, error: errorMsg };
+                }
+
+                try {
+                    let loggedInUserProfile: UserProfile | null = null;
+                    let accountRole: UserRole | undefined;
+                    let accountId: string | undefined;
+
+                    // Check users collection
+                    let q = query(
+                        collection(db, "users"),
+                        where("email", "==", emailInput.trim()),
+                        where("password", "==", passwordInput)
+                    );
+                    let querySnapshot = await getDocs(q);
+
+                    if (!querySnapshot.empty) {
+                        const userDoc = querySnapshot.docs[0];
+                        const { password, ...userDataWithoutPassword } = userDoc.data();
+                        accountRole = 'user';
+                        loggedInUserProfile = {
+                            id: userDoc.id,
+                            role: accountRole,
+                            ...userDataWithoutPassword
+                        } as UserProfile;
+                        accountId = userDoc.id;
+                    }
+
+                    // Check mechanics collection if not found in users
+                    if (!loggedInUserProfile) {
+                        q = query(
+                            collection(db, "mechanics"),
+                            where("email", "==", emailInput.trim()),
+                            where("password", "==", passwordInput)
+                        );
+                        querySnapshot = await getDocs(q);
+
+                        if (!querySnapshot.empty) {
+                            const mechanicDoc = querySnapshot.docs[0];
+                            const { password, ...mechanicDataWithoutPassword } = mechanicDoc.data();
+                            accountRole = 'mechanic';
+                            loggedInUserProfile = {
+                                id: mechanicDoc.id,
+                                role: accountRole,
+                                ...mechanicDataWithoutPassword
+                            } as UserProfile;
+                            accountId = mechanicDoc.id;
+                        }
+                    }
+
+                    if (loggedInUserProfile && accountRole) {
+                        set({
+                            currentUser: loggedInUserProfile,
+                            isLoading: false,
+                            loginError: null,
+                            passwordInput: ''
+                        });
+                        return { success: true, role: accountRole, id: accountId };
+                    } else {
+                        const errorMsg = "Invalid email or password.";
+                        set({ loginError: errorMsg, isLoading: false, currentUser: null });
+                        return { success: false, error: errorMsg };
+                    }
+
+                } catch (error: any) {
+                    console.error("Error during login query: ", error);
+                    const message = error.message || "An unexpected error occurred during login.";
+                    set({ loginError: message, isLoading: false, currentUser: null });
+                    return { success: false, error: message };
+                }
+            },
+
+            logout: () => {
+                set({
+                    currentUser: null,
+                    emailInput: '',
+                    passwordInput: '',
+                    loginError: null
+                });
+            },
+
+            clearLoginError: () => set({ loginError: null }),
+        }),
+        {
+            name: 'user-storage',
+            storage: createJSONStorage(() => zustandSecureStore), // ✅ using SecureStore here
+            partialize: (state) => ({
+                currentUser: state.currentUser,
+            }),
+        }
+    )
+);

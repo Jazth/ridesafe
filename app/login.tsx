@@ -14,7 +14,6 @@ import {
     View
 } from 'react-native';
 const appLogo = require('../assets/images/logo.jpg');
-
 const { width } = Dimensions.get('window');
 
 export default function LoginScreen() {
@@ -34,11 +33,22 @@ export default function LoginScreen() {
             clearLoginError();
         }
         console.log('Attempting login with:', { email: emailInput, password: passwordInput });
+        
+        // --- KEY CHANGE: Await the result which now contains the role ---
         const result = await attemptLoginWithQuery();
 
+
         if (result.success) {
-            router.replace('/(tabs)');
+            // Check the role and navigate accordingly
+            if (result.role === 'mechanic') {
+                // Navigate to the mechanic's dashboard within the (mechanic) group
+                router.replace('/mechanic/mechanicDashboard');
+            } else {
+                // Navigate to the user's default screen (index) within the (user) group
+                router.replace('/(tabs)/user'); 
+            }
         } else if (result.error) {
+            // ... (Error handling)
         }
     };
 
@@ -47,9 +57,7 @@ export default function LoginScreen() {
     };
 
     return (
-         <SafeAreaView
-            style={styles.keyboardAvoidingContainer}
-        >
+        <SafeAreaView style={styles.keyboardAvoidingContainer}>
             <View style={styles.container}>
                 <StatusBar style="light" />
 
@@ -58,7 +66,7 @@ export default function LoginScreen() {
                     style={styles.logo}
                     resizeMode="contain"
                 />
-                   {loginError && (
+                    {loginError && (
                         <Text style={styles.errorText}>{loginError}</Text>
                     )}
                 <View style={styles.inputContainer}>
@@ -82,11 +90,7 @@ export default function LoginScreen() {
                         secureTextEntry
                         editable={!isLoading}
                     />
-
-                 
                 </View>
-
-      
 
                 <View style={styles.buttonContainer}>
                     <TouchableOpacity
@@ -100,7 +104,7 @@ export default function LoginScreen() {
                             <Text style={[styles.buttonText, styles.signInButtonText]}>Sign In</Text>
                         )}
                     </TouchableOpacity>
-                                  {/* Separator line with text */}
+                {/* Separator line with text */}
                 <View style={styles.separatorContainer}>
                     <View style={styles.separatorLine} />
                     <Text style={styles.separatorText}>OR</Text>
@@ -136,7 +140,7 @@ const styles = StyleSheet.create({
         height: 280,
         marginBottom: 50,
     },
-    inputContainer: {    
+    inputContainer: {    
         width: '100%',
         alignItems: 'center',
         marginBottom: 10,
