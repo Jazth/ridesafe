@@ -10,29 +10,32 @@ export default function MechanicHistory() {
   const [done, setDone] = useState<BreakdownRequest[]>([]);
   const [cancelled, setCancelled] = useState<BreakdownRequest[]>([]);
 
-  useEffect(() => {
-    const q = query(collection(db, 'breakdown_requests'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const all = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as BreakdownRequest[];
+ useEffect(() => {
+  const q = query(collection(db, 'breakdown_requests'));
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const all = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as BreakdownRequest[];
 
-      // Show only requests related to this mechanic
-      const myRequests = all.filter((r) => r.claimedBy?.id === mechanicId);
+    // Show requests related to this mechanic (claimed or cancelled)
+    const myRequests = all.filter(
+      (r) => r.claimedBy?.id === mechanicId || r.cancelledBy === mechanicId
+    );
+    
+    // Pending → Claimed but not finished yet
+    setPending(myRequests.filter((r) => r.status === 'pending'));
 
-      // Pending → Claimed but not finished yet
-      setPending(myRequests.filter((r) => r.status === 'pending'));
+    // Done → Transaction completed
+    setDone(myRequests.filter((r) => r.status === 'done'));
 
-      // Done → Transaction completed
-      setDone(myRequests.filter((r) => r.status === 'done'));
+    // Cancelled → Mechanic cancelled
+    setCancelled(myRequests.filter((r) => r.status === 'cancelled'));
+  });
 
-      // Cancelled → Mechanic cancelled
-      setCancelled(myRequests.filter((r) => r.status === 'cancelled'));
-    });
+  return () => unsubscribe();
+}, []);
 
-    return () => unsubscribe();
-  }, []);
 
   const renderRequestCard = (req: BreakdownRequest, color: string) => (
     <View key={req.id} style={[styles.card, { borderLeftColor: color }]}>

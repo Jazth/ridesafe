@@ -4,6 +4,8 @@ import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { create } from 'zustand';
 
 interface MechanicRegistrationFormData { 
+  firstName: string;
+  lastName: string;
   email: string;
   phoneNumber: string;
   password: string;
@@ -28,15 +30,15 @@ interface MechanicRegistrationFormState extends MechanicRegistrationFormData {
 }
 
 interface MechanicRegistrationFormActions {
+  setFirstName: (name: string) => void;
+  setLastName: (name: string) => void;
   setEmail: (email: string) => void;
   setPhoneNumber: (number: string) => void;
   setPassword: (password: string) => void;
   setBusinessName: (name: string) => void;
   setServiceArea: (area: string) => void;
   setLicenseNumber: (num: string) => void;
-
   resetForm: () => void;
-
   saveMechanicRegistrationData: (
     data: MechanicRegistrationFormData,
     businessLicenseFile: { uri: string, name: string } | null,
@@ -44,31 +46,34 @@ interface MechanicRegistrationFormActions {
     nbiClearanceFile: { uri: string, name: string } | null,
     otherCertFile: { uri: string, name: string } | null
   ) => Promise<{ success: boolean; error?: string; docId?: string }>;
-
   setSaveError: (error: string | null) => void;
 }
-
 type MechanicRegistrationFormStore = MechanicRegistrationFormState & MechanicRegistrationFormActions;
 
 export const useMechanicRegistrationStore = create<MechanicRegistrationFormStore>((set, get) => ({
+  firstName: '',
+  lastName: '',
   email: '',
   phoneNumber: '',
   password: '',
   businessName: '',
   serviceArea: '',
   licenseNumber: '',
-
   isSaving: false,
   saveError: null,
 
-  setEmail: (emailValue) => set({ email: emailValue, saveError: null }),
-  setPhoneNumber: (numberValue) => set({ phoneNumber: numberValue, saveError: null }),
-  setPassword: (passwordValue) => set({ password: passwordValue, saveError: null }),
-  setBusinessName: (name) => set({ businessName: name, saveError: null }),
-  setServiceArea: (area) => set({ serviceArea: area, saveError: null }),
-  setLicenseNumber: (num) => set({ licenseNumber: num, saveError: null }),
+  setFirstName: (val) => set({ firstName: val, saveError: null }),
+  setLastName: (val) => set({ lastName: val, saveError: null }),
+  setEmail: (val) => set({ email: val, saveError: null }),
+  setPhoneNumber: (val) => set({ phoneNumber: val, saveError: null }),
+  setPassword: (val) => set({ password: val, saveError: null }),
+  setBusinessName: (val) => set({ businessName: val, saveError: null }),
+  setServiceArea: (val) => set({ serviceArea: val, saveError: null }),
+  setLicenseNumber: (val) => set({ licenseNumber: val, saveError: null }),
 
   resetForm: () => set({
+    firstName: '',
+    lastName: '',
     email: '',
     phoneNumber: '',
     password: '',
@@ -89,6 +94,8 @@ export const useMechanicRegistrationStore = create<MechanicRegistrationFormStore
     set({ isSaving: true, saveError: null });
 
     const {
+      firstName,
+      lastName,
       email,
       phoneNumber,
       password,
@@ -97,18 +104,18 @@ export const useMechanicRegistrationStore = create<MechanicRegistrationFormStore
       licenseNumber,
     } = data;
 
-    // Required fields and files validation
     if (
-      !email || !phoneNumber || !password || !businessName || !serviceArea || !licenseNumber ||
+      !firstName || !lastName ||
+      !email || !phoneNumber || !password ||
+      !businessName || !serviceArea || !licenseNumber ||
       !businessLicenseFile || !driversLicenseFile || !nbiClearanceFile
     ) {
-      const errorMsg = 'Please fill all required fields and upload all required documents (Business License, Driver’s License, NBI Clearance).';
+      const errorMsg = 'Please fill all required fields and upload all required documents.';
       set({ saveError: errorMsg, isSaving: false });
       return { success: false, error: errorMsg };
     }
 
     try {
-      // Helper to upload file and get URL
       const uploadFile = async (file: { uri: string; name: string }, folder: string) => {
         const response = await fetch(file.uri);
         const blob = await response.blob();
@@ -127,7 +134,9 @@ export const useMechanicRegistrationStore = create<MechanicRegistrationFormStore
       }
 
       const mechanicToSave: MechanicToSave = {
-        email: email.trim(),
+        firstName,
+        lastName,
+        email,
         phoneNumber,
         password,
         businessName,

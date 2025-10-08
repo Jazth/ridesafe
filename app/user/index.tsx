@@ -7,7 +7,7 @@ import { Picker } from '@react-native-picker/picker';
 import * as Location from 'expo-location';
 import { GoogleMaps } from "expo-maps";
 import { GoogleMapsMapType } from 'expo-maps/build/google/GoogleMaps.types';
-import { addDoc, collection, limit, onSnapshot, orderBy, query, serverTimestamp, where } from "firebase/firestore";
+import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import React, { useEffect, useState } from 'react';
 import { Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,25 +37,37 @@ const [activeRequest, setActiveRequest] = useState(null);
 
 
   useEffect(() => {
-    if (!transactionsModalVisible || !currentUser?.id) return;
+  if (!transactionsModalVisible || !currentUser?.id) return;
 
-    const q = query(
-  collection(db, 'breakdown_requests'),
-  where('userId', '==', currentUser.id),
-  where('status', 'in', ['pending', 'claimed', 'done', 'cancelled']) 
-);
+  const q = query(
+    collection(db, "breakdown_requests"),
+    where("userId", "==", currentUser.id),
+    orderBy("timestamp", "desc")
+  );
+  
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+     if (!querySnapshot.empty) {
+      const docSnap = querySnapshot.docs[0];
+      const data = { id: docSnap.id, ...docSnap.data() } as BreakdownRequest;
 
+      // Notify the user if the request is marked done
+      if (data.status === "done" && activeRequest?.status !== "done") {
+      }
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const transactions = [];
-      querySnapshot.forEach(doc => {
-        transactions.push({ id: doc.id, ...doc.data() });
-      });
-      setUserTransactions(transactions);
+      setActiveRequest(data);
+    } else {
+      setActiveRequest(null);
+    }
+    const transactions = [];
+    querySnapshot.forEach(doc => {
+      transactions.push({ id: doc.id, ...doc.data() });
     });
+    setUserTransactions(transactions);
+  });
 
-    return () => unsubscribe();
-  }, [transactionsModalVisible, currentUser?.id]);
+  return () => unsubscribe();
+}, [transactionsModalVisible, currentUser?.id]);
+
 
     // ✅ FIXED: Real-time listener for the most recent active request
   useEffect(() => {
@@ -64,17 +76,36 @@ const [activeRequest, setActiveRequest] = useState(null);
       return;
     }
 
-    const q = query(
-      collection(db, "breakdown_requests"),
-      where("userId", "==", currentUser.id),
-      where("status", "in", ["pending", "claimed", "done", "cancelled"]),
-      orderBy("timestamp", "desc"),
-      limit(1)
-    );
+      const q = query(
+        collection(db, "breakdown_requests"),
+        where("userId", "==", currentUser.id),
+        where("status", "in", ["pending", "claimed"]),
+        orderBy("status", "desc"), // required for index
+        orderBy("timestamp", "desc"),
+        limit(1)
+      );
+
+      const claimRequest = async (requestId: string, mechanic: { id: string; name: string; phoneNum?: string; business?: string }) => {
+  try {
+    const requestRef = doc(db, "breakdown_requests", requestId);
+    await updateDoc(requestRef, {
+      status: "claimed",
+      claimedBy: {
+        id: mechanic.id,
+        name: mechanic.name,
+        phoneNum: mechanic.phoneNum || "N/A",
+        business: mechanic.business || "N/A",
+      },
+    });
+    console.log(`Request ${requestId} claimed by ${mechanic.name}`);
+  } catch (error) {
+    console.error("Error claiming request:", error);
+    Alert.alert("Error", "Failed to claim request. Please try again.");
+  }
+};
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       if (!querySnapshot.empty) {
-        // 🛠️ Explicitly tell TS that this is a BreakdownRequest
         const docSnap = querySnapshot.docs[0];
         const data = { id: docSnap.id, ...docSnap.data() } as BreakdownRequest;
 
@@ -138,7 +169,7 @@ const [activeRequest, setActiveRequest] = useState(null);
   setModalStep('form');
   setTempRequest(null);
   setModalVisible(true);
-}, []); // empty dependency array means run only once on mount
+}, []); 
 
 
   useEffect(() => {
@@ -366,6 +397,7 @@ const [activeRequest, setActiveRequest] = useState(null);
     return;
   }
 
+  // ✅ Only block if there is an ongoing request (pending or claimed)
   if (activeRequest && ["pending", "claimed"].includes(activeRequest.status)) {
     Alert.alert(
       "Request Already Active",
@@ -374,7 +406,6 @@ const [activeRequest, setActiveRequest] = useState(null);
     return;
   }
 
-  // ✅ Fetch user info from your user profile store
   const { userInfo } = useUserProfileStore.getState();
   const userName =
     userInfo?.fullName ||
@@ -419,7 +450,6 @@ const [activeRequest, setActiveRequest] = useState(null);
     useBreakdownStore.getState().addRequest(savedRequest);
     setActiveRequest(savedRequest);
     setModalStep("active");
-    Alert.alert("Success", "Help request sent!");
   } catch (error) {
     console.error("Error sending help request:", error);
     Alert.alert("Error", "Failed to send help request. Please try again.");
@@ -439,36 +469,79 @@ const [activeRequest, setActiveRequest] = useState(null);
         </>
       )}
         {modalStep === "active" && activeRequest && (
-          <View style={styles.activeRequestContainer}>
-            <TouchableOpacity
-              style={styles.modalCloseX}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.modalCloseXText}>✕</Text>
-            </TouchableOpacity>
+  <View style={styles.activeRequestContainer}>
+    <TouchableOpacity
+      style={styles.modalCloseX}
+      onPress={() => setModalVisible(false)}
+    >
+      <Text style={styles.modalCloseXText}>✕</Text>
+    </TouchableOpacity>
 
-            <Text style={styles.modalTitle}>Your Help Request</Text>
+    <Text style={styles.modalTitle}>Your Help Request</Text>
+ 
+    {/* Status Section */}
+    <View style={styles.statusContainer}>
+      {activeRequest.status === "pending" && (
+        <Text style={styles.pendingStatus}>Pending</Text>
+      )}
 
-            <Text>
-              Status:{" "}
-              {activeRequest.status === "pending"
-                ? "Pending"
-                : activeRequest.status === "claimed"
-                ? "Claimed by mechanic"
-                : activeRequest.status === "done"
-                ? "Completed"
-                : activeRequest.status === "cancelled"
-                ? "Cancelled"
-                : "Pending"}
+      {activeRequest.status === "claimed" && activeRequest.claimedBy && (
+        <>
+         {activeRequest.status === "claimed" && activeRequest.claimedBy && (
+  <>
+    <Text style={styles.claimedStatus}>
+      Claimed by: {activeRequest.claimedBy.name || "Mechanic"}
+    </Text>
+          {/* Split full name into first and last if available */}
+          {activeRequest.claimedBy.firstName || activeRequest.claimedBy.lastName ? (
+            <Text style={styles.claimedStatus}>
+              Name: {activeRequest.claimedBy.firstName || ""} {activeRequest.claimedBy.lastName || ""}
             </Text>
+          ) : null}
+          <Text style={styles.claimedStatus}>
+            Phone: {activeRequest.claimedBy.phoneNum || "N/A"}
+          </Text>
+          <Text style={styles.claimedStatus}>
+            Business: {activeRequest.claimedBy.business || "N/A"}
+          </Text>
+        </>
+      )}
+        </>
+      )}
 
-            {activeRequest.status === "claimed" && activeRequest.claimedBy ? (
-              <Text>Claimed by: {activeRequest.claimedBy.name || "A mechanic"}</Text>
-            ) : null}
-          </View>
-        )}
+      {activeRequest.status === "done" && (
+        <Text style={styles.completedStatus}>Completed</Text>
+      )}
 
+      {activeRequest.status === "cancelled" && (
+        <Text style={styles.cancelledStatus}>Cancelled</Text>
+      )}
+    </View>
+      {/* Cancel Button */}
+    {(activeRequest.status === "pending" || activeRequest.status === "claimed") && (
+      <TouchableOpacity
+        style={styles.cancelButton}
+        onPress={async () => {
+          try {
+            const requestRef = doc(db, "breakdown_requests", activeRequest.id);
+            await updateDoc(requestRef, { status: "cancelled" });
 
+            setActiveRequest({ ...activeRequest, status: "cancelled" });
+            useBreakdownStore.getState().updateRequestStatus(activeRequest.id, "cancelled");
+
+            setModalStep("form");
+          } catch (error) {
+            console.error("Error cancelling request:", error);
+            Alert.alert("Error", "Failed to cancel request. Please try again.");
+          }
+        }}
+      >
+        <Text style={styles.cancelButtonText}>Cancel Request</Text>
+      </TouchableOpacity>
+    )}
+   
+  </View>
+)}
             </View>
           </View>
         </Modal>
@@ -506,6 +579,7 @@ const [activeRequest, setActiveRequest] = useState(null);
                 <Text style={{ fontWeight: "700" }}>Claimed By:</Text>{" "}
                 {tx.claimedBy.name || "Mechanic"}
               </Text>
+              
             )}
             <Text>
               <Text style={{ fontWeight: "700" }}>Vehicle:</Text>{" "}
@@ -641,6 +715,41 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  statusContainer: {
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginVertical: 20,
+},
+
+pendingStatus: {
+  fontSize: 22,
+  fontWeight: '700',
+  color: '#FFD700',
+  textAlign: 'center',
+},
+
+claimedStatus: {
+  fontSize: 20,
+  fontWeight: '600',
+  color: '#007AFF',
+  textAlign: 'center',
+  marginVertical: 2,
+},
+
+completedStatus: {
+  fontSize: 20,
+  fontWeight: '600',
+  color: '#4CAF50',
+  textAlign: 'center',
+},
+
+cancelledStatus: {
+  fontSize: 20,
+  fontWeight: '600',
+  color: '#E53935',
+  textAlign: 'center',
+},
+
   activeRequestContainer: {
     paddingVertical: 20,
     paddingHorizontal: 20,

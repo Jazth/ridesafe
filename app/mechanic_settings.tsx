@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useRouter } from 'expo-router';
-import { doc, DocumentReference, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, DocumentReference, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUserQueryLoginStore } from '@/constants/store';
-import { useUserProfileStore, Vehicle } from '@/constants/userProfileStore';
+import { useUserProfileStore } from '@/constants/userProfileStore';
 
 const navigateToEditProfile = () => {
   router.push('/mechanic_account_change');
@@ -158,7 +158,14 @@ const MechanicSettingsScreen = () => {
               <Ionicons name="pencil-sharp" size={18} color="black" />
             </TouchableOpacity>
           </View>
-
+            <View style={styles.profileInfo}>
+              <Text style={styles.subHeadertxt}>First Name</Text>
+              <Text style={styles.emailInput}>{userInfo.firstName || 'Not provided'}</Text>
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.subHeadertxt}>Last Name</Text>
+              <Text style={styles.emailInput}>{userInfo.lastName || 'Not provided'}</Text>
+            </View>
           {/* Fields */}
           <View style={styles.profileInfo}><Text style={styles.subHeadertxt}>Email</Text><Text style={styles.emailInput}>{userInfo.email}</Text></View>
           <View style={styles.profileInfo}><Text style={styles.subHeadertxt}>Phone Number</Text><Text style={styles.emailInput}>{userInfo.phoneNumber}</Text></View>
@@ -166,7 +173,6 @@ const MechanicSettingsScreen = () => {
           <View style={styles.profileInfo}><Text style={styles.subHeadertxt}>Service Area</Text><Text style={styles.emailInput}>{userInfo.serviceArea || 'Not provided'}</Text></View>
           <View style={styles.profileInfo}><Text style={styles.subHeadertxt}>License Number</Text><Text style={styles.emailInput}>{userInfo.licenseNumber || 'Not provided'}</Text></View>
 
-          {/* Document Links */}
           <View style={styles.profileInfo}><Text style={styles.subHeadertxt}>Business License</Text>{userInfo.businessLicenseUrl ? (<TouchableOpacity onPress={() => openFileLink(userInfo.businessLicenseUrl)}><Text style={styles.linkText}>View Business License</Text></TouchableOpacity>) : (<Text style={styles.emailInput}>Not uploaded</Text>)}</View>
 
           <View style={styles.profileInfo}><Text style={styles.subHeadertxt}>Driver’s License</Text>{userInfo.driversLicenseUrl ? (<TouchableOpacity onPress={() => openFileLink(userInfo.driversLicenseUrl)}><Text style={styles.linkText}>View Driver’s License</Text></TouchableOpacity>) : (<Text style={styles.emailInput}>Not uploaded</Text>)}</View>

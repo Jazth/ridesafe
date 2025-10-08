@@ -10,19 +10,17 @@ export type BreakdownRequest = {
   vehicleId: string | null;
   reason: string;
   timestamp: any;
-  status: 'pending' | 'claimed' | 'approved' | 'cancelled' | 'done'; // optional
+  status: 'pending' | 'claimed' | 'approved' | 'cancelled' | 'done';
   claimedBy?: { id: string; name: string } | null;
-  cancelledBy?: string | null;     // ✅ add this
-  cancelledAt?: Date | number | null; // ✅ optional for logging cancel time
+  cancelledBy?: string | null;
+  cancelledAt?: Date | number | null;
 };
-
-
-
 
 type BreakdownStore = {
   requests: BreakdownRequest[];
   addRequest: (request: BreakdownRequest) => void;
   clearRequests: () => void;
+  updateRequestStatus: (id: string, status: BreakdownRequest['status']) => void; // ✅ include here
 };
 
 export const useBreakdownStore = create<BreakdownStore>((set) => ({
@@ -32,4 +30,10 @@ export const useBreakdownStore = create<BreakdownStore>((set) => ({
       requests: [...state.requests, request],
     })),
   clearRequests: () => set({ requests: [] }),
+  updateRequestStatus: (id, status) =>
+    set((state) => ({
+      requests: state.requests.map((req) =>
+        req.id === id ? { ...req, status } : req
+      ),
+    })),
 }));

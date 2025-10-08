@@ -3,7 +3,7 @@ import { useUserProfileStore } from '@/constants/userProfileStore';
 import { db } from '@/scripts/firebaseConfig';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { collection, doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -20,19 +20,51 @@ import MapViewDirections from 'react-native-maps-directions';
 const GOOGLE_MAPS_APIKEY = 'AIzaSyAxVriB1UsbVdbBbrWQTAnAohoxwKVLXPA';
 
 export default function MechanicDashboard() {
-  const mechanicId = 'mechanic1';
+  const mechanicId = 'mechanic1'; // replace with your mechanic auth id
   const [requests, setRequests] = useState<BreakdownRequest[]>([]);
-  const [mapModalVisible, setMapModalVisible] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<BreakdownRequest | null>(null);
+  const [mapModalVisible, setMapModalVisible] = useState(false);
   const [mechanicLocation, setMechanicLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [routeInfo, setRouteInfo] = useState<{ distance: number; duration: number } | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [cooldownUntil, setCooldownUntil] = useState<Date | null>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+const [lastSelectedRequest, setLastSelectedRequest] = useState<BreakdownRequest | null>(null);
 
   const mapRef = useRef<MapView>(null);
   const locationWatcher = useRef<Location.LocationSubscription | null>(null);
 
   const { vehicles } = useUserProfileStore();
+  
+  useEffect(() => {
+  const fetchMechanicProfile = async () => {
+    if (!mechanicId) return;
+
+    try {
+      setIsProfileLoading(true); // start loading
+      const docRef = doc(db, 'mechanics', mechanicId);
+      const docSnap = await getDoc(docRef);
+
+     if (docSnap.exists()) {
+      const data = docSnap.data();
+      useUserProfileStore.getState().setUserInfo({ id: docSnap.id, ...data });
+      useUserProfileStore.getState().setVehicles(data.vehicles || []);
+    } else {
+      useUserProfileStore.getState().setUserInfo(null);
+      useUserProfileStore.getState().setVehicles([]);
+    }
+
+    } catch (error) {
+      console.error('Error fetching mechanic profile:', error);
+      Alert.alert('Error', 'Failed to load mechanic profile.');
+    } finally {
+      setIsProfileLoading(false); // finished loading
+    }
+  };
+
+  fetchMechanicProfile();
+}, [mechanicId]);
+
 
   // Get mechanic location dynamically
   useEffect(() => {
@@ -55,19 +87,32 @@ export default function MechanicDashboard() {
 
     return () => locationWatcher.current?.remove();
   }, []);
+ useEffect(() => {
+  if (!mechanicId) return;
 
-  // Listen for breakdown requests
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'breakdown_requests'), (snapshot) => {
-      const all = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as BreakdownRequest[];
-      const filtered = all.filter((req) => req.status === 'pending' && (!req.claimedBy || req.claimedBy.id === mechanicId));
-      setRequests(filtered);
-    });
+  const unsubscribe = onSnapshot(collection(db, 'breakdown_requests'), (snapshot) => {
+    const allRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as BreakdownRequest[];
 
-    return () => unsubscribe();
-  }, []);
+    let mechanicFiltered = allRequests.filter(req =>
+      req.status === 'pending' || (req.status === 'claimed' && req.claimedBy?.id === mechanicId)
+    );
 
-  const activeRequest = requests.find((r) => r.claimedBy?.id === mechanicId);
+    if (selectedRequest && !mechanicFiltered.find(r => r.id === selectedRequest.id)) {
+      mechanicFiltered = [...mechanicFiltered, selectedRequest];
+    }
+
+    if (lastSelectedRequest && !mechanicFiltered.find(r => r.id === lastSelectedRequest.id)) {
+      mechanicFiltered = [...mechanicFiltered, lastSelectedRequest];
+    }
+
+    setRequests(mechanicFiltered);
+  });
+
+  return () => unsubscribe();
+}, [mechanicId, selectedRequest, lastSelectedRequest]);
+
+
+  const activeRequest = requests.find(r => r.claimedBy?.id === mechanicId);
   const isOnCooldown = cooldownUntil && new Date() < cooldownUntil;
 
   useEffect(() => {
@@ -77,35 +122,56 @@ export default function MechanicDashboard() {
   }, [selectedRequest]);
 
   const openMapModal = (req: BreakdownRequest) => {
-    setSelectedRequest(req);
-    setMapModalVisible(true);
-  };
+  setSelectedRequest(req);
+  setLastSelectedRequest(req);
+  setMapModalVisible(true);
+};
+
+  const { fetchUserProfileData } = useUserProfileStore();
 
   const handleAcceptRequest = async () => {
-    if (!selectedRequest) return;
+  if (!selectedRequest) return;
 
-    if (isOnCooldown) {
-      const minsLeft = Math.ceil((cooldownUntil!.getTime() - Date.now()) / 60000);
-      Alert.alert('Cooldown Active', `You can claim again in ${minsLeft} minute(s).`);
-      return;
-    }
+  if (isOnCooldown) {
+    const minsLeft = Math.ceil((cooldownUntil!.getTime() - Date.now()) / 60000);
+    Alert.alert('Cooldown Active', `You can claim again in ${minsLeft} minute(s).`);
+    return;
+  }
 
-    if (activeRequest) {
-      Alert.alert('Already Active', 'You already have an ongoing request.');
-      return;
-    }
+  if (activeRequest) {
+    Alert.alert('Already Active', 'You already have an ongoing request.');
+    return;
+  }
 
-    try {
-      await updateDoc(doc(db, 'breakdown_requests', selectedRequest.id), {
-        status: 'pending',
-        claimedBy: { id: mechanicId, name: 'You' },
-      });
-      setAccepted(true);
-      Alert.alert('Accepted', 'You have accepted this breakdown request.');
-    } catch {
-      Alert.alert('Error', 'Could not accept this request.');
-    }
-  };
+  try {
+    const mechanicInfoFromStore = useUserProfileStore.getState().userInfo;
+
+if (!mechanicInfoFromStore) {
+  Alert.alert('Error', 'Mechanic profile not loaded yet.');
+  return;
+}
+
+const mechanicInfo = {
+  id: mechanicId,
+  name: `${mechanicInfoFromStore.firstName || ''} ${mechanicInfoFromStore.lastName || ''}`.trim() || 'Mechanic',
+  firstName: mechanicInfoFromStore.firstName || '',
+  lastName: mechanicInfoFromStore.lastName || '',
+  phoneNum: mechanicInfoFromStore.phoneNumber || 'N/A',
+  business: mechanicInfoFromStore.businessName || 'N/A',
+};
+
+    await updateDoc(doc(db, 'breakdown_requests', selectedRequest.id), {
+      status: 'claimed',
+      claimedBy: mechanicInfo,
+    });
+
+    setAccepted(true);
+    Alert.alert('Accepted', 'You have accepted this breakdown request.');
+  } catch (error) {
+    console.error('Error accepting request:', error);
+    Alert.alert('Error', 'Could not accept this request.');
+  }
+};
 
   const handleCancelRequest = async () => {
     if (!selectedRequest) return;
@@ -123,8 +189,10 @@ export default function MechanicDashboard() {
               cancelledAt: new Date(),
             });
             setAccepted(false);
-            setCooldownUntil(new Date(Date.now() + 10 * 60 * 1000));
+            setCooldownUntil(new Date(Date.now() + 10 * 60 * 1000)); // 10 min cooldown
             setMapModalVisible(false);
+            setSelectedRequest(null);
+            setLastSelectedRequest(null);
           } catch {
             Alert.alert('Error', 'Failed to cancel request.');
           }
@@ -132,7 +200,7 @@ export default function MechanicDashboard() {
       },
     ]);
   };
-
+  
   const handleMarkAsDone = async () => {
     if (!selectedRequest) return;
 
@@ -149,6 +217,8 @@ export default function MechanicDashboard() {
             Alert.alert('Success', 'Marked as completed.');
             setMapModalVisible(false);
             setAccepted(false);
+            setSelectedRequest(null);
+          setLastSelectedRequest(null);
           } catch {
             Alert.alert('Error', 'Failed to mark as done.');
           }
@@ -179,9 +249,7 @@ export default function MechanicDashboard() {
                 {req.location?.latitude?.toFixed(6)}, {req.location?.longitude?.toFixed(6)}
               </Text>
               <Text style={styles.timestamp}>
-                {req.timestamp?.toDate?.()
-                  ? req.timestamp.toDate().toLocaleString()
-                  : new Date(req.timestamp).toLocaleString()}
+                {req.timestamp?.toDate ? req.timestamp.toDate().toLocaleString() : new Date(req.timestamp).toLocaleString()}
               </Text>
             </TouchableOpacity>
           ))
@@ -213,15 +281,12 @@ export default function MechanicDashboard() {
                   })
                 }
               >
-               {/* Mechanic Marker as Blue Circle */}
-<Marker coordinate={mechanicLocation} title="Your Location" >
-  <View style={styles.mechanicMarker} />
-</Marker>
-
-{/* Request Location Marker */}
-<Marker coordinate={selectedRequest.location} title="Request Location">
-
-</Marker>
+                <Marker coordinate={mechanicLocation} title="Your Location">
+                  <View style={styles.mechanicMarker} />
+                </Marker>
+                <Marker coordinate={selectedRequest.location} title="Request Location">
+               
+                </Marker>
 
                 {accepted && (
                   <MapViewDirections
@@ -232,7 +297,10 @@ export default function MechanicDashboard() {
                     strokeColor="#007bff"
                     onReady={(result) => {
                       setRouteInfo({ distance: result.distance, duration: result.duration });
-                      mapRef.current?.fitToCoordinates(result.coordinates, { edgePadding: { top: 60, right: 60, bottom: 60, left: 60 }, animated: true });
+                      mapRef.current?.fitToCoordinates(result.coordinates, {
+                        edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
+                        animated: true,
+                      });
                     }}
                   />
                 )}
@@ -299,13 +367,11 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { fontSize: 16, color: '#666' },
   mechanicMarker: {
-  width: 40,
-  height: 40,
-  borderRadius: 300,
-  backgroundColor: '#007bff', // Blue circle
-  borderWidth: 2,
-  borderColor: '#fff',
-},
-
-
+    width: 40,
+    height: 40,
+    borderRadius: 300,
+    backgroundColor: '#007bff', // Blue circle
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
 });

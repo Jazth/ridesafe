@@ -17,11 +17,11 @@ export default function MechanicTabs() {
       headerShown: false,
     }}>
       <Tabs.Screen name="mechanicDashboard" options={{
-        title: 'Assignments',
+        title: 'Requests',
         tabBarIcon: ({ color, size }) => <Ionicons name="construct" size={size} color={color} />,
       }} />
       <Tabs.Screen name="mechanic_history" options={{
-        title: 'Assignments',
+        title: 'Mechanic History',
         tabBarIcon: ({ color, size }) => <Ionicons name="book" size={size} color={color} />,
       }} />
       <Tabs.Screen name="Profile" options={{
