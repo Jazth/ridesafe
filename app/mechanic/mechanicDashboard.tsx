@@ -1,6 +1,10 @@
+import type { BreakdownRequest } from '@/constants/callForHelp';
+import { useUserProfileStore } from '@/constants/userProfileStore';
 import { db } from '@/scripts/firebaseConfig';
-import { collection, onSnapshot } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import { MaterialIcons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
+import { collection, doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -9,105 +13,149 @@ import {
   Text,
   TouchableOpacity,
   View,
-  PermissionsAndroid,
-  Platform,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
-import Geolocation from '@react-native-community/geolocation';
 
-const GOOGLE_MAPS_APIKEY = 'AIzaSyAxVriB1UsbVdbBbrWQTAnAohoxwKVLXPA'; // Use your API Key
-
-type BreakdownRequest = {
-  id: string;
-  userId: string;
-  location: { latitude: number; longitude: number };
-  address: string;
-  vehicleId: string | null;
-  reason: string;
-  timestamp: any; // Firestore Timestamp type
-};
+const GOOGLE_MAPS_APIKEY = 'AIzaSyAxVriB1UsbVdbBbrWQTAnAohoxwKVLXPA';
 
 export default function MechanicDashboard() {
+  const mechanicId = 'mechanic1';
   const [requests, setRequests] = useState<BreakdownRequest[]>([]);
   const [mapModalVisible, setMapModalVisible] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<BreakdownRequest | null>(null);
   const [mechanicLocation, setMechanicLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [routeInfo, setRouteInfo] = useState<{ distance: number; duration: number } | null>(null);
+  const [accepted, setAccepted] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState<Date | null>(null);
 
+  const mapRef = useRef<MapView>(null);
+  const locationWatcher = useRef<Location.LocationSubscription | null>(null);
+
+  const { vehicles } = useUserProfileStore();
+
+  // Get mechanic location dynamically
   useEffect(() => {
-    // Request location permission on Android
-    async function requestLocationPermission() {
-      if (Platform.OS === 'android') {
-        try {
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-            {
-              title: 'Location Permission',
-              message: 'This app needs access to your location to show routes.',
-              buttonNeutral: 'Ask Me Later',
-              buttonNegative: 'Cancel',
-              buttonPositive: 'OK',
-            },
-          );
-          if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-            getCurrentLocation();
-          } else {
-            Alert.alert('Permission Denied', 'Location permission is needed to show directions.');
-            // fallback mechanic location (optional)
-            setMechanicLocation({ latitude: 37.78825, longitude: -122.4324 });
-          }
-        } catch (err) {
-          console.warn(err);
-          setMechanicLocation({ latitude: 37.78825, longitude: -122.4324 });
-        }
-      } else {
-        getCurrentLocation();
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Location permission is required.');
+        setMechanicLocation({ latitude: 37.78825, longitude: -122.4324 });
+        return;
       }
-    }
 
-    function getCurrentLocation() {
-      Geolocation.getCurrentPosition(
-        (position) => {
-          setMechanicLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-        },
-        (error) => {
-          Alert.alert('Location Error', error.message);
-          // fallback location if error
-          setMechanicLocation({ latitude: 37.78825, longitude: -122.4324 });
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+      const location = await Location.getCurrentPositionAsync({});
+      setMechanicLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude });
+
+      locationWatcher.current = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Highest, distanceInterval: 5 },
+        (loc) => setMechanicLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude })
       );
-    }
+    })();
 
-    requestLocationPermission();
+    return () => locationWatcher.current?.remove();
   }, []);
 
+  // Listen for breakdown requests
   useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(db, 'breakdown_requests'),
-      (snapshot) => {
-        const liveRequests = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as BreakdownRequest[];
-        setRequests(liveRequests);
-      },
-      (error) => {
-        console.error('Error listening to breakdown requests:', error);
-        Alert.alert('Error', 'Could not load breakdown requests.');
-      },
-    );
+    const unsubscribe = onSnapshot(collection(db, 'breakdown_requests'), (snapshot) => {
+      const all = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as BreakdownRequest[];
+      const filtered = all.filter((req) => req.status === 'pending' && (!req.claimedBy || req.claimedBy.id === mechanicId));
+      setRequests(filtered);
+    });
 
     return () => unsubscribe();
   }, []);
 
-  function openMapModal(latitude: number, longitude: number) {
-    setSelectedLocation({ latitude, longitude });
+  const activeRequest = requests.find((r) => r.claimedBy?.id === mechanicId);
+  const isOnCooldown = cooldownUntil && new Date() < cooldownUntil;
+
+  useEffect(() => {
+    if (selectedRequest) {
+      setAccepted(selectedRequest.claimedBy?.id === mechanicId);
+    }
+  }, [selectedRequest]);
+
+  const openMapModal = (req: BreakdownRequest) => {
+    setSelectedRequest(req);
     setMapModalVisible(true);
-  }
+  };
+
+  const handleAcceptRequest = async () => {
+    if (!selectedRequest) return;
+
+    if (isOnCooldown) {
+      const minsLeft = Math.ceil((cooldownUntil!.getTime() - Date.now()) / 60000);
+      Alert.alert('Cooldown Active', `You can claim again in ${minsLeft} minute(s).`);
+      return;
+    }
+
+    if (activeRequest) {
+      Alert.alert('Already Active', 'You already have an ongoing request.');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'breakdown_requests', selectedRequest.id), {
+        status: 'pending',
+        claimedBy: { id: mechanicId, name: 'You' },
+      });
+      setAccepted(true);
+      Alert.alert('Accepted', 'You have accepted this breakdown request.');
+    } catch {
+      Alert.alert('Error', 'Could not accept this request.');
+    }
+  };
+
+  const handleCancelRequest = async () => {
+    if (!selectedRequest) return;
+
+    Alert.alert('Cancel Request?', 'Are you sure?', [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Yes, Cancel',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await updateDoc(doc(db, 'breakdown_requests', selectedRequest.id), {
+              status: 'cancelled',
+              cancelledBy: mechanicId,
+              cancelledAt: new Date(),
+            });
+            setAccepted(false);
+            setCooldownUntil(new Date(Date.now() + 10 * 60 * 1000));
+            setMapModalVisible(false);
+          } catch {
+            Alert.alert('Error', 'Failed to cancel request.');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleMarkAsDone = async () => {
+    if (!selectedRequest) return;
+
+    Alert.alert('Mark as Done?', 'Confirm completion', [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Yes',
+        onPress: async () => {
+          try {
+            await updateDoc(doc(db, 'breakdown_requests', selectedRequest.id), {
+              status: 'done',
+              completedAt: new Date(),
+            });
+            Alert.alert('Success', 'Marked as completed.');
+            setMapModalVisible(false);
+            setAccepted(false);
+          } catch {
+            Alert.alert('Error', 'Failed to mark as done.');
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -117,66 +165,104 @@ export default function MechanicDashboard() {
           <Text style={styles.empty}>No requests yet</Text>
         ) : (
           requests.map((req) => (
-            <View key={req.id} style={styles.card}>
+            <TouchableOpacity key={req.id} style={styles.card} onPress={() => openMapModal(req)}>
+              <Text style={styles.userName}>Requested by: {req.userName || 'Unknown'}</Text>
               <Text style={styles.address}>{req.address}</Text>
+              <Text style={styles.vehicle}>
+                Vehicle:{' '}
+                {vehicles.find((v) => v.id === req.vehicleId)
+                  ? `${vehicles.find((v) => v.id === req.vehicleId)?.year} ${vehicles.find((v) => v.id === req.vehicleId)?.make} ${vehicles.find((v) => v.id === req.vehicleId)?.model}`
+                  : 'Unknown'}
+              </Text>
               <Text style={styles.reason}>Reason: {req.reason}</Text>
+              <Text style={styles.location}>
+                {req.location?.latitude?.toFixed(6)}, {req.location?.longitude?.toFixed(6)}
+              </Text>
               <Text style={styles.timestamp}>
-                {req.timestamp?.toDate
+                {req.timestamp?.toDate?.()
                   ? req.timestamp.toDate().toLocaleString()
                   : new Date(req.timestamp).toLocaleString()}
               </Text>
-              <TouchableOpacity
-                style={styles.viewMapButton}
-                onPress={() => openMapModal(req.location.latitude, req.location.longitude)}
-              >
-                <Text style={styles.viewMapButtonText}>View on Map</Text>
-              </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </ScrollView>
 
       {/* Map Modal */}
-      <Modal
-        animationType="slide"
-        transparent={false}
-        visible={mapModalVisible}
-        onRequestClose={() => setMapModalVisible(false)}
-      >
+      <Modal animationType="slide" transparent={false} visible={mapModalVisible}>
         <View style={styles.modalContainer}>
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => setMapModalVisible(false)}
-          >
-            <Text style={styles.closeButtonText}>Close Map</Text>
+          <TouchableOpacity style={styles.closeIcon} onPress={() => setMapModalVisible(false)}>
+            <MaterialIcons name="close" size={28} color="#333" />
           </TouchableOpacity>
 
-          {selectedLocation && mechanicLocation ? (
-            <MapView
-              style={styles.map}
-              initialRegion={{
-                latitude: (mechanicLocation.latitude + selectedLocation.latitude) / 2,
-                longitude: (mechanicLocation.longitude + selectedLocation.longitude) / 2,
-                latitudeDelta:
-                  Math.abs(mechanicLocation.latitude - selectedLocation.latitude) * 2 || 0.05,
-                longitudeDelta:
-                  Math.abs(mechanicLocation.longitude - selectedLocation.longitude) * 2 || 0.05,
-              }}
-            >
-              <Marker coordinate={mechanicLocation} title="Your Location" pinColor="blue" />
-              <Marker coordinate={selectedLocation} title="Request Location" />
-              <MapViewDirections
-                origin={mechanicLocation}
-                destination={selectedLocation}
-                apikey={GOOGLE_MAPS_APIKEY}
-                strokeWidth={4}
-                strokeColor="hotpink"
-                onError={(errorMessage) => {
-                  console.error('Directions error:', errorMessage);
-                  Alert.alert('Error', 'Could not fetch directions.');
+          {selectedRequest && mechanicLocation ? (
+            <>
+              <MapView
+                ref={mapRef}
+                style={styles.map}
+                initialRegion={{
+                  latitude: (mechanicLocation.latitude + selectedRequest.location.latitude) / 2,
+                  longitude: (mechanicLocation.longitude + selectedRequest.location.longitude) / 2,
+                  latitudeDelta: 0.02,
+                  longitudeDelta: 0.02,
                 }}
-              />
-            </MapView>
+                onMapReady={() =>
+                  mapRef.current?.fitToCoordinates([mechanicLocation, selectedRequest.location], {
+                    edgePadding: { top: 100, right: 100, bottom: 100, left: 100 },
+                    animated: true,
+                  })
+                }
+              >
+               {/* Mechanic Marker as Blue Circle */}
+<Marker coordinate={mechanicLocation} title="Your Location" >
+  <View style={styles.mechanicMarker} />
+</Marker>
+
+{/* Request Location Marker */}
+<Marker coordinate={selectedRequest.location} title="Request Location">
+
+</Marker>
+
+                {accepted && (
+                  <MapViewDirections
+                    origin={mechanicLocation}
+                    destination={selectedRequest.location}
+                    apikey={GOOGLE_MAPS_APIKEY}
+                    strokeWidth={4}
+                    strokeColor="#007bff"
+                    onReady={(result) => {
+                      setRouteInfo({ distance: result.distance, duration: result.duration });
+                      mapRef.current?.fitToCoordinates(result.coordinates, { edgePadding: { top: 60, right: 60, bottom: 60, left: 60 }, animated: true });
+                    }}
+                  />
+                )}
+              </MapView>
+
+              <View style={styles.routeInfoBelow}>
+                {!accepted ? (
+                  <TouchableOpacity
+                    style={[styles.acceptButton, (isOnCooldown || !!activeRequest) && { backgroundColor: '#ccc' }]}
+                    disabled={isOnCooldown || !!activeRequest}
+                    onPress={handleAcceptRequest}
+                  >
+                    <Text style={styles.acceptButtonText}>
+                      {isOnCooldown ? 'Cooldown Active' : activeRequest ? 'Already Claimed' : 'Accept Request'}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <>
+                    <Text style={styles.routeText}>Distance: {routeInfo?.distance?.toFixed(2) ?? '--'} km</Text>
+                    <Text style={styles.routeText}>ETA: {routeInfo ? Math.round(routeInfo.duration) : '--'} min</Text>
+                    <TouchableOpacity style={styles.doneButton} onPress={handleMarkAsDone}>
+                      <Text style={styles.doneButtonText}>Mark as Done</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.cancelButton} onPress={handleCancelRequest}>
+                      <Text style={styles.cancelButtonText}>Cancel Request</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </>
           ) : (
             <View style={styles.loadingContainer}>
               <Text style={styles.loadingText}>Loading map...</Text>
@@ -189,85 +275,37 @@ export default function MechanicDashboard() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    paddingBottom: 50,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-    color: '#333',
-  },
-  empty: {
-    fontSize: 16,
-    color: '#999',
-    textAlign: 'center',
-    marginTop: 40,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  address: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#222',
-  },
-  reason: {
-    fontSize: 16,
-    marginBottom: 8,
-    color: '#555',
-  },
-  timestamp: {
-    fontSize: 14,
-    marginBottom: 12,
-    color: '#888',
-  },
-  viewMapButton: {
-    backgroundColor: '#007bff',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  viewMapButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  modalContainer: {
-    flex: 1,
-  },
-  closeButton: {
-    backgroundColor: '#007bff',
-    padding: 15,
-    borderRadius: 0,
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  map: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-  },
+  container: { padding: 16, paddingBottom: 50 },
+  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 16, textAlign: 'center', color: '#333' },
+  empty: { fontSize: 16, color: '#999', textAlign: 'center', marginTop: 40 },
+  card: { backgroundColor: '#fff', borderRadius: 12, padding: 20, marginBottom: 20, elevation: 5 },
+  userName: { fontSize: 16, fontWeight: '600', marginBottom: 6, color: '#111' },
+  address: { fontSize: 18, fontWeight: '600', marginBottom: 8, color: '#222' },
+  reason: { fontSize: 16, marginBottom: 8, color: '#555' },
+  vehicle: { fontSize: 16, marginBottom: 8, color: '#444' },
+  location: { fontSize: 14, marginBottom: 8, color: '#666' },
+  timestamp: { fontSize: 12, marginBottom: 8, color: '#888' },
+  modalContainer: { flex: 1 },
+  closeIcon: { position: 'absolute', top: 40, right: 20, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 20, padding: 4, elevation: 5 },
+  map: { flex: 1 },
+  routeInfoBelow: { paddingVertical: 16, paddingHorizontal: 20, backgroundColor: '#fff', borderTopColor: '#ccc', borderTopWidth: 1, alignItems: 'center' },
+  acceptButton: { backgroundColor: '#28a745', paddingVertical: 12, paddingHorizontal: 40, borderRadius: 30 },
+  acceptButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  doneButton: { marginTop: 10, backgroundColor: '#007bff', paddingVertical: 12, paddingHorizontal: 40, borderRadius: 30 },
+  doneButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  cancelButton: { marginTop: 10, backgroundColor: '#d9534f', paddingVertical: 12, paddingHorizontal: 40, borderRadius: 30 },
+  cancelButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  routeText: { fontSize: 18, color: '#333', fontWeight: '600', marginBottom: 4 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { fontSize: 16, color: '#666' },
+  mechanicMarker: {
+  width: 40,
+  height: 40,
+  borderRadius: 300,
+  backgroundColor: '#007bff', // Blue circle
+  borderWidth: 2,
+  borderColor: '#fff',
+},
+
+
 });

@@ -20,6 +20,10 @@ export default function MechanicTabs() {
         title: 'Assignments',
         tabBarIcon: ({ color, size }) => <Ionicons name="construct" size={size} color={color} />,
       }} />
+      <Tabs.Screen name="mechanic_history" options={{
+        title: 'Assignments',
+        tabBarIcon: ({ color, size }) => <Ionicons name="book" size={size} color={color} />,
+      }} />
       <Tabs.Screen name="Profile" options={{
         title: 'Profile',
         tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
