@@ -25,7 +25,10 @@ export default function Index() {
   const [address, setAddress] = useState(null);
   const { vehicles,  fetchUserProfileData, } = useUserProfileStore();
   const GOOGLEMAPKEY = "AIzaSyAxVriB1UsbVdbBbrWQTAnAohoxwKVLXPA";
-  
+ const [mechanicLocation, setMechanicLocation] = useState(null);
+  const [routeInfo, setRouteInfo] = useState<{ distance: number; duration: number } | null>(null);
+  const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
+
 const [modalStep, setModalStep] = useState('form'); // 'form', 'confirm', 'active'
 const [tempRequest, setTempRequest] = useState(null); // Holds the request details before final submit
 const [activeRequest, setActiveRequest] = useState(null);
@@ -44,7 +47,7 @@ const [activeRequest, setActiveRequest] = useState(null);
     where("userId", "==", currentUser.id),
     orderBy("timestamp", "desc")
   );
-  
+
   const unsubscribe = onSnapshot(q, (querySnapshot) => {
      if (!querySnapshot.empty) {
       const docSnap = querySnapshot.docs[0];
@@ -165,12 +168,105 @@ const [activeRequest, setActiveRequest] = useState(null);
     }
     return points;
   };
-  useEffect(() => {
-  setModalStep('form');
-  setTempRequest(null);
-  setModalVisible(true);
-}, []); 
 
+  useEffect(() => {
+    setModalStep('form');
+    setTempRequest(null);
+    setModalVisible(true);
+  }, []); 
+  
+
+  
+  // ✅ Real-time mechanic tracking like Angkas/Lalamove
+useEffect(() => {
+  if (activeRequest?.status === "claimed" && activeRequest.claimedBy?.id) {
+    const mechanicRef = doc(db, "mechanics", activeRequest.claimedBy.id);
+    console.log("👀 Tracking mechanic:", activeRequest.claimedBy.id);
+
+    const unsubscribe = onSnapshot(mechanicRef, async (docSnap) => {
+      const data = docSnap.data();
+      if (data?.currentLocation) {
+        const newLoc = data.currentLocation;
+        setMechanicLocation(newLoc);
+        console.log("📍 Mechanic moving:", newLoc);
+
+        // Fetch route dynamically
+        if (userLocation) {
+          try {
+            const response = await fetch(
+              `https://maps.googleapis.com/maps/api/directions/json?origin=${newLoc.latitude},${newLoc.longitude}&destination=${userLocation.latitude},${userLocation.longitude}&key=${GOOGLEMAPKEY}`
+            );
+            const result = await response.json();
+            if (result.routes?.length > 0) {
+              const points = decodePolyline(result.routes[0].overview_polyline.points);
+              setRouteCoords(points);
+              const leg = result.routes[0].legs[0];
+              setRouteInfo({
+                distance: leg.distance.value / 1000,
+                duration: leg.duration.value / 60,
+              });
+            }
+          } catch (err) {
+            console.error("Error updating route:", err);
+          }
+        }
+
+        // Smooth map adjustment every mechanic update
+        setInitialRegion({
+          latitude: (newLoc.latitude + userLocation.latitude) / 2,
+          longitude: (newLoc.longitude + userLocation.longitude) / 2,
+          latitudeDelta: Math.abs(newLoc.latitude - userLocation.latitude) * 3 || 0.01,
+          longitudeDelta: Math.abs(newLoc.longitude - userLocation.longitude) * 3 || 0.01,
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  } else {
+    setMechanicLocation(null);
+    setRouteCoords([]);
+  }
+}, [activeRequest, userLocation]);
+
+
+useEffect(() => {
+    const fetchRoute = async () => {
+      if (!mechanicLocation || !userLocation) return;
+
+      try {
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/directions/json?origin=${mechanicLocation.latitude},${mechanicLocation.longitude}&destination=${userLocation.latitude},${userLocation.longitude}&key=${GOOGLEMAPKEY}`
+        );
+        const data = await response.json();
+        if (data.routes?.length > 0) {
+          const points = decodePolyline(data.routes[0].overview_polyline.points);
+          setRouteCoords(points);
+
+          const leg = data.routes[0].legs[0];
+          setRouteInfo({
+            distance: leg.distance.value / 1000,
+            duration: leg.duration.value / 60,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching route info:", error);
+      }
+    };
+
+    fetchRoute();
+  }, [mechanicLocation, userLocation]);
+  // 🧭 Auto-fit map to show both user & mechanic when both exist
+useEffect(() => {
+  if (!mechanicLocation || !userLocation) return;
+
+  // This auto fits both markers every time mechanic moves
+  setInitialRegion({
+    latitude: (mechanicLocation.latitude + userLocation.latitude) / 2,
+    longitude: (mechanicLocation.longitude + userLocation.longitude) / 2,
+    latitudeDelta: Math.abs(mechanicLocation.latitude - userLocation.latitude) * 3 || 0.01,
+    longitudeDelta: Math.abs(mechanicLocation.longitude - userLocation.longitude) * 3 || 0.01,
+  });
+}, [mechanicLocation, userLocation]);
 
   useEffect(() => {
     let subscriber;
@@ -278,38 +374,91 @@ const [activeRequest, setActiveRequest] = useState(null);
     {hasLocationPermission ? (
       <>
         <GoogleMaps.View
-          properties={{
-            selectionEnabled: true,
-            mapType: GoogleMapsMapType.NORMAL,
-          }}
-          style={styles.map}
-          markers={userMarker ? [userMarker] : []}
-          uiSettings={{
-            zoomControlsEnabled: false,
-            tiltGesturesEnabled: false,
-            myLocationButtonEnabled: false,
-          }}
-          userLocation={{
-            followUserLocation: true,
-            coordinates: userLocation
-              ? {
-                  latitude: userLocation.latitude,
-                  longitude: userLocation.longitude,
-                }
-              : undefined,
-          }}
-          cameraPosition={
-            initialRegion && userLocation
-              ? {
-                  coordinates: {
-                    latitude: userLocation.latitude,
-                    longitude: userLocation.longitude,
-                  },
-                  zoom: 20,
-                }
-              : undefined
-          }
-        />
+  properties={{
+    selectionEnabled: true,
+    mapType: GoogleMapsMapType.NORMAL,
+  }}
+  style={styles.map}
+  markers={[
+  ...(userMarker
+    ? [
+        {
+          ...userMarker,
+          // 🟦 Use local blue icon for user
+          icon: require("@/assets/images/blue-dot.png"),
+        },
+      ]
+    : []),
+  ...(mechanicLocation
+    ? [
+        {
+          coordinates: mechanicLocation,
+          title: "Mechanic Location",
+          id: "mechanic-marker",
+          showCallout: true,
+        },
+      ]
+    : []),
+]}
+
+  polylines={
+    routeCoords.length > 0
+      ? [
+          {
+            id: "route-line",
+            coordinates: routeCoords,
+            color: "#FF5722",
+            width: 10,
+          },
+        ]
+      : []
+  }
+  uiSettings={{
+    zoomControlsEnabled: false,
+    tiltGesturesEnabled: false,
+    myLocationButtonEnabled: false,
+  }}
+  userLocation={{
+    followUserLocation: true,
+    coordinates: userLocation
+      ? {
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+        }
+      : undefined,
+  }}
+  cameraPosition={
+    initialRegion && userLocation
+      ? {
+          coordinates: {
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+          },
+          zoom: 20,
+        }
+      : undefined
+  }
+/>
+
+{/* ✅ move this OUTSIDE the map component */}
+{mechanicLocation && routeInfo && (
+  <View
+    style={{
+      position: "absolute",
+      bottom: 100,
+      alignSelf: "center",
+      backgroundColor: "white",
+      padding: 10,
+      borderRadius: 10,
+    }}
+  >
+    <Text>🚗 Mechanic is {routeInfo.distance.toFixed(2)} km away</Text>
+    <Text>⏱️ ETA: {Math.round(routeInfo.duration)} min</Text>
+  </View>
+)}
+
+
+
         <TouchableOpacity
           style={styles.hamburgerButton}
           onPress={() => setTransactionsModalVisible(true)}
@@ -486,8 +635,10 @@ const [activeRequest, setActiveRequest] = useState(null);
       )}
 
       {activeRequest.status === "claimed" && activeRequest.claimedBy && (
+        
         <>
          {activeRequest.status === "claimed" && activeRequest.claimedBy && (
+          
   <>
     <Text style={styles.claimedStatus}>
       Claimed by: {activeRequest.claimedBy.name || "Mechanic"}
