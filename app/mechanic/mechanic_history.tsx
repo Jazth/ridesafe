@@ -1,4 +1,6 @@
+// ✅ MechanicHistory.tsx
 import type { BreakdownRequest } from '@/constants/callForHelp';
+import { useUserQueryLoginStore } from '@/constants/store';
 import { db } from '@/scripts/firebaseConfig';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
@@ -12,14 +14,17 @@ import {
 } from 'react-native';
 
 export default function MechanicHistory() {
-  const mechanicId = 'mechanic1';
-  const [done, setDone] = useState<BreakdownRequest[]>([]);
-  const [cancelled, setCancelled] = useState<BreakdownRequest[]>([]);
+  const { currentUser } = useUserQueryLoginStore();
+  const mechanicId = currentUser?.id;
 
+  const [history, setHistory] = useState<BreakdownRequest[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<BreakdownRequest | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
+  // ✅ Listen for all requests handled by this mechanic
   useEffect(() => {
+    if (!mechanicId) return;
+
     const q = query(collection(db, 'breakdown_requests'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const all = snapshot.docs.map((doc) => ({
@@ -27,62 +32,77 @@ export default function MechanicHistory() {
         ...doc.data(),
       })) as BreakdownRequest[];
 
-      // Only show requests handled by this mechanic
+      // only requests this mechanic handled
       const myRequests = all.filter(
         (r) => r.claimedBy?.id === mechanicId || r.cancelledBy === mechanicId
       );
 
-      setDone(myRequests.filter((r) => r.status === 'done'));
-      setCancelled(myRequests.filter((r) => r.status === 'cancelled'));
+      // sort by date descending
+      const sorted = myRequests.sort(
+        (a, b) =>
+          new Date(b.timestamp?.toDate?.() ?? b.timestamp).getTime() -
+          new Date(a.timestamp?.toDate?.() ?? a.timestamp).getTime()
+      );
+
+      setHistory(sorted);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [mechanicId]);
 
-  const renderRequestCard = (req: BreakdownRequest, color: string) => (
-    <TouchableOpacity
-      key={req.id}
-      style={[styles.card, { borderLeftColor: color }]}
-      activeOpacity={0.8}
-      onPress={() => {
-        setSelectedRequest(req);
-        setModalVisible(true);
-      }}
-    >
-      <Text style={styles.address}>{req.address}</Text>
-      <Text style={styles.reason}>Reason: {req.reason}</Text>
-      <Text style={styles.timestamp}>
-        {req.timestamp?.toDate
-          ? req.timestamp.toDate().toLocaleString()
-          : new Date(req.timestamp).toLocaleString()}
-      </Text>
-      <Text style={[styles.status, { color }]}>{req.status.toUpperCase()}</Text>
-    </TouchableOpacity>
-  );
+  // ✅ Map status to color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'done':
+        return '#4CAF50'; // green
+      case 'cancelled':
+        return '#E53935'; // red
+      case 'pending':
+        return '#FFC107'; // yellow
+      case 'claimed':
+        return '#9C27B0'; // purple
+      default:
+        return '#555';
+    }
+  };
+
+  const renderRequestCard = (req: BreakdownRequest) => {
+    const color = getStatusColor(req.status);
+    return (
+      <TouchableOpacity
+        key={req.id}
+        style={[styles.card, { borderLeftColor: color }]}
+        activeOpacity={0.8}
+        onPress={() => {
+          setSelectedRequest(req);
+          setModalVisible(true);
+        }}
+      >
+        <Text style={styles.address}>{req.address}</Text>
+        <Text style={styles.reason}>Reason: {req.reason}</Text>
+        <Text style={styles.timestamp}>
+          {req.timestamp?.toDate
+            ? req.timestamp.toDate().toLocaleString()
+            : new Date(req.timestamp).toLocaleString()}
+        </Text>
+        <Text style={[styles.status, { color }]}>{req.status.toUpperCase()}</Text>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={{ flex: 1 }}>
       <ScrollView style={styles.container}>
-        <Text style={styles.title}>Breakdown History</Text>
+        <Text style={styles.title}>Breakdown Request History</Text>
 
-        {/* Completed Requests */}
-        <Text style={[styles.sectionTitle, { color: '#4CAF50' }]}>Completed Requests</Text>
-        {done.length > 0 ? (
-          done.map((req) => renderRequestCard(req, '#4CAF50'))
+        {history.length > 0 ? (
+          history.map((req) => renderRequestCard(req))
         ) : (
-          <Text style={styles.empty}>No completed requests</Text>
-        )}
-
-        {/* Cancelled Requests */}
-        <Text style={[styles.sectionTitle, { color: '#E53935' }]}>Cancelled Requests</Text>
-        {cancelled.length > 0 ? (
-          cancelled.map((req) => renderRequestCard(req, '#E53935'))
-        ) : (
-          <Text style={styles.empty}>No cancelled requests</Text>
+          <Text style={styles.empty}>No history records yet</Text>
         )}
       </ScrollView>
 
-      {/* Modal */}
+      {/* Modal for details */}
       <Modal
         visible={modalVisible}
         transparent
@@ -93,7 +113,7 @@ export default function MechanicHistory() {
           <View style={styles.modalContainer}>
             {selectedRequest ? (
               <>
-                <Text style={styles.modalTitle}>User Details</Text>
+                <Text style={styles.modalTitle}>Request Details</Text>
 
                 <Text style={styles.modalText}>
                   <Text style={styles.bold}>Name:</Text>{' '}
@@ -101,7 +121,7 @@ export default function MechanicHistory() {
                 </Text>
                 <Text style={styles.modalText}>
                   <Text style={styles.bold}>Phone:</Text>{' '}
-                  {selectedRequest['phone number'] || 'N/A'}
+                  {selectedRequest.phoneNum || 'N/A'}
                 </Text>
                 <Text style={styles.modalText}>
                   <Text style={styles.bold}>Address:</Text>{' '}
@@ -153,16 +173,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#FF5722',
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 10,
-    color: '#333',
-    marginTop: 20,
-    borderBottomWidth: 2,
-    borderBottomColor: '#FF5722',
-    paddingBottom: 4,
-  },
   card: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -183,6 +193,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#999',
     fontSize: 16,
+    marginTop: 20,
     marginBottom: 20,
   },
   modalBackground: {
@@ -206,15 +217,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#FF5722',
   },
-  modalText: {
-    fontSize: 16,
-    marginBottom: 8,
-    color: '#333',
-  },
-  bold: {
-    fontWeight: '700',
-    color: '#FF5722',
-  },
+  modalText: { fontSize: 16, marginBottom: 8, color: '#333' },
+  bold: { fontWeight: '700', color: '#FF5722' },
   closeButton: {
     marginTop: 25,
     backgroundColor: '#FF5722',
@@ -222,9 +226,5 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
-  closeButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  closeButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

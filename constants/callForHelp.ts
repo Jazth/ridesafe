@@ -14,6 +14,15 @@ export type BreakdownRequest = {
   claimedBy?: { id: string; name: string } | null;
   cancelledBy?: string | null;
   cancelledAt?: Date | number | null;
+  userConfirmed?: boolean;
+  userConfirmedAt?: any;
+  userFeedback?: {
+    rating?: number;
+    text?: string;
+    submittedAt?: any;
+    autoConfirmed?: boolean;
+  };
+  mechanicConfirmed?: boolean;
 };
 
 type BreakdownStore = {
