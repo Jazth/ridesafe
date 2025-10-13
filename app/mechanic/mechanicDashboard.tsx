@@ -9,9 +9,8 @@ import {
   collection,
   doc,
   getDoc,
-  onSnapshot,
-  setDoc,
-  updateDoc,
+  onSnapshot, runTransaction, setDoc,
+  updateDoc
 } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -27,10 +26,6 @@ import MapView, { Marker } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
 
 const GOOGLE_MAPS_APIKEY = 'AIzaSyAxVriB1UsbVdbBbrWQTAnAohoxwKVLXPA';
-
-// MECHANIC_ICON is no longer needed since we are using MaterialIcons
-// const MECHANIC_ICON = require('@/assets/images/blue-dot.png'); 
-
 export default function MechanicDashboard() {
   const { currentUser } = useUserQueryLoginStore();
   const { userInfo, fetchUserProfileData } = useUserProfileStore();
@@ -125,21 +120,43 @@ export default function MechanicDashboard() {
     setMapModalVisible(true);
   };
 
-  const handleAcceptRequest = async () => {
-    if (!selectedRequest || !mechanicId) return;
-    if (isOnCooldown) {
-      const minsLeft = Math.ceil((cooldownUntil!.getTime() - Date.now()) / 60000);
-      Alert.alert('Cooldown Active', `You can claim again in ${minsLeft} minute(s).`);
-      return;
-    }
-    if (activeRequest) {
-      Alert.alert('Already Active', 'You already have an ongoing request.');
-      return;
-    }
 
-    try {
+const handleAcceptRequest = async () => {
+  if (!selectedRequest || !mechanicId) return;
+
+  if (isOnCooldown) {
+    const minsLeft = Math.ceil((cooldownUntil!.getTime() - Date.now()) / 60000);
+    Alert.alert('Cooldown Active', `You can claim again in ${minsLeft} minute(s).`);
+    return;
+  }
+
+  if (activeRequest) {
+    Alert.alert('Already Active', 'You already have an ongoing request.');
+    return;
+  }
+
+  try {
+    const requestRef = doc(db, 'breakdown_requests', selectedRequest.id);
+
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(requestRef);
+      if (!snap.exists()) throw new Error('Request no longer exists');
+
+      const data = snap.data() as BreakdownRequest;
+
+      // ❌ Cancelled or already claimed = stop immediately
+      if (data.status !== 'pending') {
+        let msg = 'This request is no longer available.';
+        if (data.status === 'cancelled') msg = 'This request was cancelled by the user.';
+        else if (data.status === 'claimed') msg = 'Another mechanic already claimed this request.';
+        else if (data.status === 'done') msg = 'This request has already been completed.';
+        throw new Error(msg);
+      }
+
+      // ✅ Still pending — claim it now safely
       const mechanicData =
         userInfo || (await getDoc(doc(db, 'mechanics', mechanicId))).data();
+
       const mechanicInfo = {
         id: mechanicId,
         name:
@@ -148,16 +165,25 @@ export default function MechanicDashboard() {
         phoneNum: mechanicData?.phoneNumber || 'N/A',
         business: mechanicData?.businessName || 'N/A',
       };
-      await updateDoc(doc(db, 'breakdown_requests', selectedRequest.id), {
+
+      transaction.update(requestRef, {
         status: 'claimed',
         claimedBy: mechanicInfo,
       });
-      setAccepted(true);
-      Alert.alert('Accepted', 'You have accepted this request.');
-    } catch {
+    });
+
+    setAccepted(true);
+    Alert.alert('Accepted', 'You have accepted this request.');
+  } catch (error: any) {
+    console.error('Error during accept:', error);
+    if (error.message.includes('cancelled') || error.message.includes('claimed')) {
+      Alert.alert('Unavailable', error.message);
+      setMapModalVisible(false);
+    } else {
       Alert.alert('Error', 'Failed to accept this request.');
     }
-  };
+  }
+};
 
   const handleCancelRequest = async () => {
     if (!selectedRequest) return;
@@ -222,16 +248,82 @@ export default function MechanicDashboard() {
           <Text style={styles.empty}>No requests yet</Text>
         ) : (
           requests.map((req) => (
-            <TouchableOpacity key={req.id} style={styles.card} onPress={() => openMapModal(req)}>
-              <Text style={styles.userName}>Requested by: {req.userName || 'Unknown'}</Text>
-              <Text style={styles.address}>{req.address}</Text>
-              <Text style={styles.reason}>Reason: {req.reason}</Text>
-              <Text style={styles.timestamp}>
-                {req.timestamp?.toDate
-                  ? req.timestamp.toDate().toLocaleString()
-                  : new Date(req.timestamp).toLocaleString()}
-              </Text>
-            </TouchableOpacity>
+           <TouchableOpacity key={req.id} style={styles.card} onPress={() => openMapModal(req)} activeOpacity={0.9}>
+  {/* Header: user + timestamp */}
+  <View style={styles.cardHeader}>
+    <View style={styles.userBlock}>
+      <MaterialIcons name="person" size={18} color="#333" />
+      <Text style={styles.userName}>
+        {req.userName || 'Unknown'}
+      </Text>
+    </View>
+
+    <Text style={styles.timeText}>
+      {req.timestamp?.toDate
+        ? req.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : new Date(req.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+    </Text>
+  </View>
+
+  {/* Vehicle + Reason row */}
+  <View style={styles.cardRow}>
+    <View style={styles.vehicleBlock}>
+      <MaterialIcons name="directions-car" size={16} color="#fff" />
+      <Text style={styles.vehicleText}>
+        {req.vehicle
+          ? `${req.vehicle.year} ${req.vehicle.make} ${req.vehicle.model}`
+          : req.vehicleId
+            ? `Vehicle #${req.vehicleId}`
+            : 'Vehicle: Unknown'}
+      </Text>
+    </View>
+
+    <View style={styles.reasonBlock}>
+      <MaterialIcons name="report-problem" size={16} color="#e67e22" />
+      <Text style={styles.reasonText}>{req.reason || 'Unknown'}</Text>
+    </View>
+  </View>
+
+  {/* Address */}
+  <View style={styles.addressRow}>
+    <MaterialIcons name="place" size={16} color="#666" />
+    <Text style={styles.addressText} numberOfLines={2}>
+      {req.address || 'No address provided'}
+    </Text>
+  </View>
+
+  {/* Footer: timestamp full + small actions */}
+  <View style={styles.cardFooter}>
+    <Text style={styles.timestamp}>
+      {req.timestamp?.toDate
+        ? req.timestamp.toDate().toLocaleString()
+        : new Date(req.timestamp).toLocaleString()}
+    </Text>
+
+    <View style={styles.footerActions}>
+      <TouchableOpacity
+        style={styles.viewBtn}
+        onPress={() => openMapModal(req)}
+        activeOpacity={0.8}
+      >
+        <MaterialIcons name="visibility" size={18} color="#fff" />
+        <Text style={styles.viewBtnText}>View</Text>
+      </TouchableOpacity>
+
+      {req.phoneNum && (
+        <TouchableOpacity
+          style={styles.callBtn}
+          onPress={() => Linking.openURL(`tel:${req.phoneNum}`)}
+          activeOpacity={0.8}
+        >
+          <MaterialIcons name="phone" size={18} color="#fff" />
+          <Text style={styles.callBtnText}>Call</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  </View>
+</TouchableOpacity>
+
           ))
         )}
       </ScrollView>
@@ -391,6 +483,106 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
+  cardHeader: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 8,
+},
+userBlock: {
+  flexDirection: 'row',
+  alignItems: 'center',
+},
+timeText: {
+  fontSize: 12,
+  color: '#888',
+},
+cardRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 8,
+},
+vehicleBlock: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#FF5722',
+  paddingVertical: 6,
+  paddingHorizontal: 10,
+  borderRadius: 20,
+  elevation: 2,
+},
+vehicleText: {
+  color: '#fff',
+  marginLeft: 8,
+  fontSize: 13,
+  fontWeight: '600',
+},
+reasonBlock: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  borderWidth: 1,
+  borderColor: '#e67e22',
+  paddingVertical: 6,
+  paddingHorizontal: 10,
+  borderRadius: 20,
+},
+reasonText: {
+  marginLeft: 8,
+  color: '#e67e22',
+  fontSize: 13,
+  fontWeight: '600',
+},
+addressRow: {
+  flexDirection: 'row',
+  alignItems: 'flex-start',
+  marginBottom: 12,
+},
+addressText: {
+  marginLeft: 8,
+  color: '#444',
+  fontSize: 14,
+  flex: 1,
+},
+cardFooter: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginTop: 6,
+},
+footerActions: {
+  flexDirection: 'row',
+  alignItems: 'center',
+},
+viewBtn: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#007AFF',
+  paddingVertical: 6,
+  paddingHorizontal: 10,
+  borderRadius: 20,
+  marginLeft: 8,
+},
+viewBtnText: {
+  color: '#fff',
+  marginLeft: 6,
+  fontWeight: '700',
+},
+callBtn: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#4CAF50',
+  paddingVertical: 6,
+  paddingHorizontal: 10,
+  borderRadius: 20,
+  marginLeft: 8,
+},
+callBtnText: {
+  color: '#fff',
+  marginLeft: 6,
+  fontWeight: '700',
+},
+
   userName: { fontSize: 15, fontWeight: '600', color: '#111' },
   address: { fontSize: 16, fontWeight: '600', marginVertical: 4, color: '#222' },
   reason: { fontSize: 15, color: '#555', marginBottom: 4 },

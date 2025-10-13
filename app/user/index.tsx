@@ -23,18 +23,18 @@ export default function Index() {
   const [isLoadingLocation, setLoadingLocation] = useState(true);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [reasonValue, setReasonValue] = useState(null);
+  const [serviceCompletedModalVisible, setServiceCompletedModalVisible] = useState(false);
+const [latestDoneRequest, setLatestDoneRequest] = useState<BreakdownRequest | null>(null);
   const [address, setAddress] = useState(null);
   const { vehicles,  fetchUserProfileData, } = useUserProfileStore();
   const GOOGLEMAPKEY = "AIzaSyAxVriB1UsbVdbBbrWQTAnAohoxwKVLXPA";
   const [mechanicLocation, setMechanicLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [routeInfo, setRouteInfo] = useState<{ distance: number; duration: number } | null>(null);
   const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
-
-  const [modalStep, setModalStep] = useState('form'); // 'form', 'confirm', 'active'
-  const [tempRequest, setTempRequest] = useState(null); // Holds the request details before final submit
+  const [modalStep, setModalStep] = useState('form'); 
+  const [tempRequest, setTempRequest] = useState(null); 
   const [activeRequest, setActiveRequest] = useState(null);
   const mapRef = useRef<MapView | null>(null);
-
   const { currentUser } = useUserQueryLoginStore();
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [transactionsModalVisible, setTransactionsModalVisible] = useState(false);
@@ -53,11 +53,8 @@ export default function Index() {
        if (!querySnapshot.empty) {
         const docSnap = querySnapshot.docs[0];
         const data = { id: docSnap.id, ...docSnap.data() } as BreakdownRequest;
-
-        // Notify the user if the request is marked done
         if (data.status === "done" && activeRequest?.status !== "done") {
         }
-
         setActiveRequest(data);
       } else {
         setActiveRequest(null);
@@ -119,6 +116,49 @@ export default function Index() {
       setModalStep("active");
     }
   }, [activeRequest]);
+  // ✅ Detect when a request transitions to "done" in real-time (even after completion)
+// ✅ Detect when a request transitions to "done" in real-time (even after completion)
+useEffect(() => {
+  if (!currentUser?.id) return;
+
+  let lastDoneIds: string[] = [];
+  let initialized = false;
+
+  const q = query(
+    collection(db, "breakdown_requests"),
+    where("userId", "==", currentUser.id),
+    orderBy("timestamp", "desc")
+  );
+
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const requests = querySnapshot.docs.map(
+      (docSnap) => ({ id: docSnap.id, ...docSnap.data() } as BreakdownRequest)
+    );
+
+    const doneIds = requests.filter((r) => r.status === "done").map((r) => r.id);
+
+    if (!initialized) {
+      lastDoneIds = doneIds;
+      initialized = true;
+      return;
+    }
+
+    const newlyDone = doneIds.filter((id) => !lastDoneIds.includes(id));
+    if (newlyDone.length > 0) {
+      const latestDone = requests.find((r) => r.id === newlyDone[0]);
+      if (latestDone) {
+        setLatestDoneRequest(latestDone);
+        setServiceCompletedModalVisible(true);
+      }
+    }
+
+    lastDoneIds = doneIds;
+  });
+
+  return () => unsubscribe();
+}, [currentUser?.id]);
+
+
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -582,7 +622,7 @@ export default function Index() {
   if (!userProfile || !userProfile.phoneNum || userProfile.phoneNum === "N/A") {
     console.log(" Refetching user profile before sending request...");
     await store.fetchUserProfileData(currentUser.id);
-    userProfile = useUserProfileStore.getState().userInfo; // ✅ re-read updated data
+    userProfile = useUserProfileStore.getState().userInfo; 
   }
 
   const userName =
@@ -593,25 +633,33 @@ export default function Index() {
 const phoneNum = userProfile?.phoneNumber || userProfile?.phoneNum || "N/A";
 
 
-  const request = {
-    userId: currentUser.id,
-    userName,
-    phoneNum,
-    location: userLocation,
-    address: address ?? "Unknown",
-    vehicleId: selectedVehicleId,
-    reason: reasonValue,
-    status: "pending" as "pending",
-    claimedBy: null,
-    timestamp: serverTimestamp(),
-  };
+  const selectedVehicle = vehicles.find(v => v.id === selectedVehicleId);
+
+const request = {
+  userId: currentUser.id,
+  userName,
+  phoneNum,
+  location: userLocation,
+  address: address ?? "Unknown",
+  vehicleId: selectedVehicleId,
+  vehicle: selectedVehicle || null, // ✅ include full info
+  reason: reasonValue,
+  status: "pending" as "pending",
+  claimedBy: null,
+  timestamp: serverTimestamp(),
+};
+
 
   try {
-    const docRef = await addDoc(collection(db, "breakdown_requests"), request);
-    const savedRequest = { ...request, id: docRef.id };
-    useBreakdownStore.getState().addRequest(savedRequest);
-    setActiveRequest(savedRequest);
-    setModalStep("active");
+   const docRef = await addDoc(collection(db, "breakdown_requests"), request);
+const savedRequest = { ...request, id: docRef.id };
+
+// Wait a bit to ensure snapshot listener catches it
+setTimeout(() => {
+  setActiveRequest(savedRequest);
+  setModalStep("active");
+}, 500);
+
   } catch (error) {
     console.error("Error sending help request:", error);
     Alert.alert("Error", "Failed to send help request. Please try again.");
@@ -866,6 +914,69 @@ const phoneNum = userProfile?.phoneNumber || userProfile?.phoneNum || "N/A";
           </Text>
         </View>
       )}
+      {/* ✅ Service Completed Modal */}
+<Modal
+  transparent={true}
+  visible={serviceCompletedModalVisible}
+  animationType="fade"
+  onRequestClose={() => setServiceCompletedModalVisible(false)}
+>
+  <View style={styles.modalBackground}>
+    <View style={styles.modalContainer}>
+      <Text style={styles.modalTitle}>✅ Service Completed</Text>
+      <Text style={{ fontSize: 16, textAlign: "center", marginBottom: 15 }}>
+        Your mechanic has marked your request as done.
+      </Text>
+
+      {latestDoneRequest && (
+        <>
+          <Text style={{ fontWeight: "700", marginBottom: 4 }}>
+            Vehicle:
+          </Text>
+          <Text style={{ marginBottom: 8 }}>
+            {(() => {
+              const v = vehicles.find(
+                (veh) => String(veh.id) === String(latestDoneRequest.vehicleId)
+              );
+              return v
+                ? `${v.year} ${v.make} ${v.model}`
+                : `Vehicle #${latestDoneRequest.vehicleId}`;
+            })()}
+          </Text>
+
+          <Text style={{ fontWeight: "700", marginBottom: 4 }}>Address:</Text>
+          <Text style={{ marginBottom: 20 }}>
+            {latestDoneRequest.address || "N/A"}
+          </Text>
+        </>
+      )}
+
+      <TouchableOpacity
+        style={[styles.callHelpButton, { backgroundColor: "#4CAF50" }]}
+        onPress={async () => {
+          if (!latestDoneRequest) return;
+          try {
+            const ref = doc(db, "breakdown_requests", latestDoneRequest.id);
+            await updateDoc(ref, { userConfirmed: true });
+            setServiceCompletedModalVisible(false);
+          } catch (err) {
+            console.error("Error confirming completion:", err);
+          }
+        }}
+      >
+        <Text style={styles.callHelpButtonText}>Confirm Service Done</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.closeButton, { marginTop: 10 }]}
+        onPress={() => setServiceCompletedModalVisible(false)}
+      >
+        <Text style={styles.closeButtonText}>Close</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
     </View>
   );
 }

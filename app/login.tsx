@@ -13,6 +13,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+
 const appLogo = require('../assets/images/logo.jpg');
 const { width } = Dimensions.get('window');
 
@@ -32,19 +33,15 @@ export default function LoginScreen() {
         if (loginError) {
             clearLoginError();
         }
-        console.log('Attempting login with:', { email: emailInput, password: passwordInput });
         const result = await attemptLoginWithQuery();
 
-
-      if (result.success) {
-        if (result.role === 'mechanic') {
-            router.replace('/mechanic/mechanicDashboard'); 
-        } else {
-            router.replace('/user'); 
+        if (result.success) {
+            if (result.role === 'mechanic') {
+                router.replace('/mechanic/mechanicDashboard'); 
+            } else {
+                router.replace('/user'); 
+            }
         }
-    } else if (result.error) {
-    }
-
     };
 
     const handleRegister = () => {
@@ -55,15 +52,10 @@ export default function LoginScreen() {
         <SafeAreaView style={styles.keyboardAvoidingContainer}>
             <View style={styles.container}>
                 <StatusBar style="light" />
+                <Image source={appLogo} style={styles.logo} resizeMode="contain" />
 
-                <Image
-                    source={appLogo}
-                    style={styles.logo}
-                    resizeMode="contain"
-                />
-                    {loginError && (
-                        <Text style={styles.errorText}>{loginError}</Text>
-                    )}
+                {loginError && <Text style={styles.errorText}>{loginError}</Text>}
+
                 <View style={styles.inputContainer}>
                     <TextInput
                         style={styles.input}
@@ -99,12 +91,13 @@ export default function LoginScreen() {
                             <Text style={[styles.buttonText, styles.signInButtonText]}>Sign In</Text>
                         )}
                     </TouchableOpacity>
-                {/* Separator line with text */}
-                <View style={styles.separatorContainer}>
-                    <View style={styles.separatorLine} />
-                    <Text style={styles.separatorText}>OR</Text>
-                    <View style={styles.separatorLine} />
-                </View>
+
+                    <View style={styles.separatorContainer}>
+                        <View style={styles.separatorLine} />
+                        <Text style={styles.separatorText}>OR</Text>
+                        <View style={styles.separatorLine} />
+                    </View>
+
                     <TouchableOpacity
                         style={[styles.button, styles.registerButton]}
                         onPress={handleRegister}
@@ -131,11 +124,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: width * 0.075,
     },
     logo: {
-        width: 250 ,
+        width: 250,
         height: 280,
         marginBottom: 50,
     },
-    inputContainer: {    
+    inputContainer: {
         width: '100%',
         alignItems: 'center',
         marginBottom: 10,
@@ -143,15 +136,14 @@ const styles = StyleSheet.create({
     input: {
         backgroundColor: 'black',
         color: 'white',
-        paddingVertical: 8, 
+        paddingVertical: 8,
         paddingHorizontal: 15,
         borderRadius: 15,
         fontSize: 14,
         borderWidth: 1,
         borderColor: '#FFF',
         marginBottom: 10,
-        
-        width: '90%', 
+        width: '90%',
     },
     errorText: {
         color: '#FF6B6B',
@@ -169,7 +161,6 @@ const styles = StyleSheet.create({
     separatorLine: {
         flex: 1,
         height: 1,
-        width: 100,
         backgroundColor: '#FFF',
     },
     separatorText: {
@@ -186,31 +177,27 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     button: {
-        paddingVertical: 8, 
+        paddingVertical: 8,
         borderRadius: 15,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 10,
-        width: '100%', 
+        width: '100%',
     },
     signInButton: {
         backgroundColor: '#FF5722',
-        borderWidth: 0,
-        borderColor: '#FFF',
-        
     },
     registerButton: {
         borderColor: '#FF5722',
         borderWidth: 1,
     },
     buttonText: {
-        fontSize: 18, 
+        fontSize: 18,
         fontWeight: 'bold',
     },
     signInButtonText: {
         color: '#FFF',
         textTransform: 'uppercase',
-        padding: 2,
     },
     registerButtonText: {
         color: '#FFF',

@@ -1,13 +1,22 @@
 import { create } from 'zustand';
-
 export type BreakdownRequest = {
   id: string;
   userId: string;
-  userName?: string; 
+  userName?: string;
   phoneNum: string;
   location: { latitude: number; longitude: number };
   address: string;
   vehicleId: string | null;
+
+  // ✅ Add this new optional property
+  vehicle?: {
+    id: string;
+    make: string;
+    model: string;
+    year: string;
+    transmission?: string;
+  } | null;
+
   reason: string;
   timestamp: any;
   status: 'pending' | 'claimed' | 'approved' | 'cancelled' | 'done';
@@ -24,6 +33,7 @@ export type BreakdownRequest = {
   };
   mechanicConfirmed?: boolean;
 };
+
 
 type BreakdownStore = {
   requests: BreakdownRequest[];
