@@ -1,15 +1,12 @@
-import { useUserQueryLoginStore } from '@/constants/store'; // Ensure this path is correct
-import { db } from '@/scripts/firebaseConfig'; // Ensure this path is correct
+import { useUserQueryLoginStore } from '@/constants/store';
+import { db } from '@/scripts/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import {
   collection,
-  doc,
-  getDoc,
   getDocs,
-  orderBy,
   query,
-  Timestamp, // For fetching user details
+  Timestamp,
   where
 } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -26,7 +23,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// From discover.tsx - ensure these are consistent or imported from a shared types file
 export interface Post {
   id: string;
   userId: string;
@@ -39,32 +35,28 @@ export interface Post {
   createdAt?: Timestamp;
   likesCount?: number;
   likedBy?: string[];
-  // ... other post fields
 }
 
 export interface UserBasicInfo {
-    id: string;
-    firstName?: string;
-    lastName?: string;
-    profilePictureUrl?: string | null;
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  profilePictureUrl?: string | null;
 }
 
-// Interface for an aggregated "Like Activity" item
 export interface LikeActivityItem {
-  id: string; // Unique key for the list, e.g., `postId-likerId`
+  id: string;
   postId: string;
   postTitle: string;
-  postImageUrl?: string | null; // Image of the post that was liked
-  liker: UserBasicInfo;       // Information about the user who liked the post
-  likedAt: Timestamp;         // Timestamp of the post creation (as a proxy for activity time)
-                                // Ideally, you'd store like timestamps for accurate sorting
+  postImageUrl?: string | null;
+  liker: UserBasicInfo;
+  likedAt: Timestamp;
+  type: string; // ✅ added this
+  text: string; // ✅ added this
 }
 
-
-// This interface might be part of your store or defined elsewhere
 export interface CurrentUserInfo {
-    id: string;
-    // Add other fields from your user store as needed
+  id: string;
 }
 
 const formatTimeAgo = (timestamp: Timestamp | undefined): string => {
@@ -84,7 +76,6 @@ const formatTimeAgo = (timestamp: Timestamp | undefined): string => {
   return `${Math.round(days / 7)}w ago`;
 };
 
-
 const ActivityScreen = () => {
   const { currentUser } = useUserQueryLoginStore() as { currentUser: CurrentUserInfo | null };
   const currentUserId = currentUser?.id || null;
@@ -95,83 +86,87 @@ const ActivityScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchLikeActivities = useCallback(async () => {
-    if (!currentUserId) {
-      setLoading(false);
-      setError("User not logged in.");
-      setLikeActivities([]);
-      return;
-    }
+    if (!currentUserId) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const postsCollectionRef = collection(db, 'posts');
-      // Query for posts created by the current user
       const q = query(
-        postsCollectionRef,
-        where('userId', '==', currentUserId),
-        orderBy('createdAt', 'desc') // Get user's most recent posts first
+        collection(db, 'notifications'),
+        where('receiverId', '==', currentUserId)
       );
+      const snapshot = await getDocs(q);
 
-      const postsSnapshot = await getDocs(q);
+      console.log("Fetched notifications count:", snapshot.size);
+      console.log("Current user ID:", currentUserId);
+      console.log("Querying notifications where receiverId == currentUserId");
+
+      snapshot.forEach((doc) => console.log(doc.id, doc.data()));
+
       const activities: LikeActivityItem[] = [];
 
-      // Iterate over each post by the current user
-      for (const postDoc of postsSnapshot.docs) {
-        const postData = postDoc.data() as Post;
-        if (postData.likedBy && postData.likedBy.length > 0) {
-          // Iterate over users who liked this specific post
-          for (const likerId of postData.likedBy) {
-            // Don't show self-likes as activity for "others liked your post"
-            if (likerId === currentUserId) continue;
+    snapshot.forEach((docSnap) => {
+  const data = docSnap.data();
 
-            try {
-              const userDocRef = doc(db, 'users', likerId);
-              const userDocSnap = await getDoc(userDocRef);
+  const likedAt =
+    data.createdAt instanceof Timestamp
+      ? data.createdAt
+      : Timestamp.fromMillis(Date.now());
 
-              if (userDocSnap.exists()) {
-                const likerData = userDocSnap.data();
-                activities.push({
-                  id: `${postDoc.id}-${likerId}`, // Composite key
-                  postId: postDoc.id,
-                  postTitle: postData.title,
-                  postImageUrl: postData.imageUrl || null,
-                  liker: {
-                    id: likerId,
-                    firstName: likerData.firstName || 'Unknown',
-                    lastName: likerData.lastName || '',
-                    profilePictureUrl: likerData.profilePictureUrl || null,
-                  },
-                  // Using post's createdAt as a proxy for when the activity might be relevant.
-                  // For true chronological like activity, each 'like' would need its own timestamp.
-                  likedAt: postData.createdAt || Timestamp.now(),
-                });
-              } else {
-                 activities.push({ // Fallback if liker's user doc is missing
-                  id: `${postDoc.id}-${likerId}`,
-                  postId: postDoc.id,
-                  postTitle: postData.title,
-                  postImageUrl: postData.imageUrl || null,
-                  liker: { id: likerId, firstName: 'An unknown user' },
-                  likedAt: postData.createdAt || Timestamp.now(),
-                });
-              }
-            } catch (userFetchError) {
-                console.error(`Error fetching user ${likerId}:`, userFetchError);
-                // Optionally add a fallback activity item here too
-            }
-          }
-        }
-      }
+  const senderName = data.senderName?.trim() || 'Someone';
+  const postTitle = data.postTitle?.trim() || 'Untitled post';
+  const type = data.type || 'unknown';
 
-      // Sort all activities by the (proxied) likedAt timestamp, most recent first
+  // ✅ Proper text based on notification type
+  let text = '';
+  switch (type) {
+    case 'like':
+      text = `${senderName} liked your post "${postTitle}".`;
+      break;
+    case 'comment':
+      text = `${senderName} commented on your post "${postTitle}".`;
+      break;
+    case 'reply':
+      text = `${senderName} replied to your comment.`;
+      break;
+    case 'comment_like':
+      text = `${senderName} liked your comment.`;
+      break;
+    case 'reply_like':
+      text = `${senderName} liked your reply.`;
+      break;
+    case 'save':
+      text = `${senderName} saved your post "${postTitle}".`;
+      break;
+    default:
+      text = data.message || `${senderName} made a new activity.`;
+  }
+
+  activities.push({
+    id: docSnap.id,
+    postId: data.postId || '',
+    postTitle,
+    postImageUrl: data.postImageUrl || null,
+    liker: {
+      id: data.senderId || 'unknown',
+      firstName: senderName,
+      lastName: '',
+      profilePictureUrl: data.senderProfileUrl || null,
+    },
+    likedAt,
+    type,
+    text,
+  });
+});
+
+
+
       activities.sort((a, b) => b.likedAt.toMillis() - a.likedAt.toMillis());
-
       setLikeActivities(activities);
     } catch (err) {
-      console.error('Error fetching like activities:', err);
-      setError('Failed to fetch recent activity.');
+      console.error('Error fetching notifications:', err);
+      setError('Failed to fetch notifications.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -182,16 +177,16 @@ const ActivityScreen = () => {
     fetchLikeActivities();
   }, [fetchLikeActivities]);
 
-  // Optional: Refetch when screen is focused if you expect data to change frequently
-  // while the user is away from this screen.
   useFocusEffect(
-    useCallback(() => {
-      // Only refetch if not initial load, to avoid double fetch on mount
-      if (!loading) {
-        fetchLikeActivities();
-      }
-    }, [loading, fetchLikeActivities])
-  );
+  useCallback(() => {
+    fetchLikeActivities();
+
+    // ✅ Only refresh once when screen is focused
+    // Not continuously on every re-render
+    return () => {};
+  }, [currentUserId])
+);
+
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -199,12 +194,17 @@ const ActivityScreen = () => {
   };
 
   const handleActivityPress = (activity: LikeActivityItem) => {
-    // Navigate to the post that was liked
-    if (activity.postId) {
-      // router.push(`/post/${activity.postId}`); // Adjust route as needed
-      Alert.alert("Notification", `User ${activity.liker.firstName} liked your post: ${activity.postTitle}`);
-    }
-  };
+  if (activity.postId) {
+    router.push({
+      pathname: "/viewPost",
+      params: { postId: activity.postId },
+    });
+  } else {
+    Alert.alert("Notice", "This activity isn’t linked to a specific post.");
+  }
+};
+
+
 
   const renderActivityItem = ({ item }: { item: LikeActivityItem }) => {
     const defaultLikerProfilePic = 'https://placehold.co/40x40/E0E0E0/B0B0B0/png?text=U';
@@ -216,22 +216,20 @@ const ActivityScreen = () => {
         onPress={() => handleActivityPress(item)}
       >
         <RNImage
-            source={{ uri: item.liker.profilePictureUrl || defaultLikerProfilePic }}
-            style={styles.profileImage}
+          source={{ uri: item.liker.profilePictureUrl || defaultLikerProfilePic }}
+          style={styles.profileImage}
         />
         <View style={styles.activityTextContainer}>
           <Text style={styles.activityMessage} numberOfLines={2}>
-            <Text style={styles.likerName}>{`${item.liker.firstName || ''} ${item.liker.lastName || ''}`.trim()}</Text>
-            {` liked your post: `}
-            <Text style={styles.postTitleSnippet}>{item.postTitle}</Text>
+            {item.text}
           </Text>
           <Text style={styles.activityTime}>{formatTimeAgo(item.likedAt)}</Text>
         </View>
         {item.postImageUrl && (
-            <RNImage
-                source={{ uri: item.postImageUrl || defaultPostImage }}
-                style={styles.postThumbnail}
-            />
+          <RNImage
+            source={{ uri: item.postImageUrl || defaultPostImage }}
+            style={styles.postThumbnail}
+          />
         )}
       </TouchableOpacity>
     );
@@ -239,15 +237,18 @@ const ActivityScreen = () => {
 
   const renderHeader = () => (
     <View style={styles.screenHeader}>
-      <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.push('/user/Discover')} style={styles.backButton}>
+      <TouchableOpacity
+        onPress={() =>  router.push('/user/Discover')}
+        style={styles.backButton}
+      >
         <Ionicons name="arrow-back" size={26} color="#FF5722" />
       </TouchableOpacity>
       <Text style={styles.screenTitle}>Recent Activity</Text>
-      <View style={{width: 26}} />{/* Placeholder for balance */}
+      <View style={{ width: 26 }} />
     </View>
   );
 
-  if (loading && likeActivities.length === 0) { // Show loading only on initial load
+  if (loading && likeActivities.length === 0) {
     return (
       <SafeAreaView style={[styles.safeArea, styles.centered]}>
         {renderHeader()}
@@ -263,7 +264,7 @@ const ActivityScreen = () => {
         <Ionicons name="warning-outline" size={48} color="red" style={{ marginTop: 20 }} />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity onPress={onRefresh} style={styles.retryButton}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
+          <Text style={styles.retryButtonText}>Try Again</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -275,19 +276,30 @@ const ActivityScreen = () => {
       <FlatList
         data={likeActivities}
         renderItem={renderActivityItem}
-        keyExtractor={item => item.id}
+        keyExtractor={(item) => item.id}
         ListEmptyComponent={
-          !loading ? ( // Don't show "no activity" if still loading
+          !loading ? (
             <View style={styles.emptyStateContainer}>
               <Ionicons name="sparkles-outline" size={60} color="#B0B0B0" />
               <Text style={styles.emptyStateText}>No recent like activity.</Text>
-              <Text style={styles.emptyStateSubText}>When someone likes your posts, you'll see it here.</Text>
+              <Text style={styles.emptyStateSubText}>
+                When someone likes your posts, you'll see it here.
+              </Text>
             </View>
           ) : null
         }
-        contentContainerStyle={likeActivities.length === 0 && !loading ? styles.centered : styles.listContentContainer}
+        contentContainerStyle={
+          likeActivities.length === 0 && !loading
+            ? styles.centered
+            : styles.listContentContainer
+        }
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#007AFF"]} tintColor={"#007AFF"}/>
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#007AFF']}
+            tintColor={'#007AFF'}
+          />
         }
       />
     </SafeAreaView>
@@ -295,15 +307,8 @@ const ActivityScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F0F2F5',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  safeArea: { flex: 1, backgroundColor: '#F0F2F5' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   screenHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -314,17 +319,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
-  backButton: {
-    padding: 5,
-  },
-  screenTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FF5722',
-  },
-  listContentContainer: {
-    paddingVertical: 8,
-  },
+  backButton: { padding: 5 },
+  screenTitle: { fontSize: 20, fontWeight: 'bold', color: '#FF5722' },
+  listContentContainer: { paddingVertical: 8 },
   activityItem: {
     backgroundColor: '#FFFFFF',
     padding: 15,
@@ -339,76 +336,29 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
-  profileImage: { // Liker's profile image
+  profileImage: {
     width: 48,
     height: 48,
     borderRadius: 24,
     marginRight: 12,
     backgroundColor: '#E9ECEF',
   },
-  activityTextContainer: {
-    flex: 1,
-  },
-  activityMessage: {
-    fontSize: 15,
-    color: '#333333',
-    marginBottom: 3,
-  },
-  likerName: {
-    fontWeight: 'bold',
-  },
-  postTitleSnippet: {
-    fontStyle: 'italic',
-  },
-  activityTime: {
-    fontSize: 12,
-    color: '#777777',
-  },
-  postThumbnail: { // Thumbnail of the liked post
+  activityTextContainer: { flex: 1 },
+  activityMessage: { fontSize: 15, color: '#333333', marginBottom: 3 },
+  activityTime: { fontSize: 12, color: '#777777' },
+  postThumbnail: {
     width: 48,
     height: 48,
     borderRadius: 6,
     marginLeft: 10,
     backgroundColor: '#E9ECEF',
   },
-  emptyStateContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    // marginTop: '30%', // Removed to allow contentContainerStyle to center
-  },
-  emptyStateText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#6C757D',
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  emptyStateSubText: {
-    fontSize: 14,
-    color: '#ADB5BD',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  errorText: {
-    fontSize: 16,
-    color: 'red',
-    textAlign: 'center',
-    marginVertical: 10,
-  },
-  retryButton: {
-    backgroundColor: '#FF5722',
-    paddingVertical: 10,
-    paddingHorizontal: 25,
-    borderRadius: 20,
-    marginTop: 15,
-  },
-  retryButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  emptyStateContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  emptyStateText: { fontSize: 18, fontWeight: '600', color: '#6C757D', marginTop: 16, textAlign: 'center' },
+  emptyStateSubText: { fontSize: 14, color: '#ADB5BD', marginTop: 4, textAlign: 'center' },
+  errorText: { fontSize: 16, color: 'red', textAlign: 'center', marginVertical: 10 },
+  retryButton: { backgroundColor: '#FF5722', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 20, marginTop: 15 },
+  retryButtonText: { color: 'white', fontSize: 16, fontWeight: '600' },
 });
 
 export default ActivityScreen;

@@ -1,7 +1,10 @@
+import { CommentsSection } from '@/app/commentSection';
 import { useUserQueryLoginStore } from '@/constants/store';
 import { db } from '@/scripts/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { addDoc, serverTimestamp } from "firebase/firestore";
+
 import {
   arrayRemove,
   arrayUnion,
@@ -74,12 +77,12 @@ const formatTimeAgo = (timestamp: Timestamp | undefined): string => {
   if (days < 7) return `${days}d ago`;
   return `${Math.round(days / 7)}w ago`;
 };
-
 const PostItem: React.FC<{
   post: Post;
   currentUserId: string | null;
+  currentUser: any; // ✅ add this line
   onShowLikes: (likedBy: string[]) => void;
-}> = React.memo(({ post, currentUserId, onShowLikes }) => {
+}> = React.memo(({ post, currentUserId, currentUser, onShowLikes }) => {
   const [isLiked, setIsLiked] = useState(post.isLikedByCurrentUser || false);
   const [likeCount, setLikeCount] = useState(post.likesCount || 0);
   const [isSaved, setIsSaved] = useState(post.isSavedByCurrentUser || false);
@@ -94,57 +97,101 @@ const PostItem: React.FC<{
   }, [post.isLikedByCurrentUser, post.likesCount, post.isSavedByCurrentUser, post.savesCount]);
 
   const handleLikeToggle = async () => {
-    if (!currentUserId) {
-      Alert.alert('Action Required', 'Please log in to like posts.');
-      return;
-    }
-    if (!post.id) return;
+  if (!currentUserId) {
+    Alert.alert('Action Required', 'Please log in to like posts.');
+    return;
+  }
+  if (!post.id || !post.userId) return;
 
-    const postRef = doc(db, 'posts', post.id);
-    const newLikedStatus = !isLiked;
-    setIsLiked(newLikedStatus);
-    setLikeCount(prevCount => (newLikedStatus ? prevCount + 1 : prevCount - 1));
+  const postRef = doc(db, 'posts', post.id);
+  const newLikedStatus = !isLiked;
+  setIsLiked(newLikedStatus);
+  setLikeCount(prevCount => (newLikedStatus ? prevCount + 1 : prevCount - 1));
 
-    try {
-      await updateDoc(postRef, {
-        likesCount: increment(newLikedStatus ? 1 : -1),
-        likedBy: newLikedStatus ? arrayUnion(currentUserId) : arrayRemove(currentUserId),
-      });
-      console.log('Post like status updated in Firestore.');
-    } catch (error) {
-      console.error('Error updating like status:', error);
-      setIsLiked(!newLikedStatus);
-      setLikeCount(prevCount => (newLikedStatus ? prevCount - 1 : prevCount + 1));
-      Alert.alert('Error', 'Could not update like. Please try again.');
-    }
-  };
+  try {
+    await updateDoc(postRef, {
+      likesCount: increment(newLikedStatus ? 1 : -1),
+      likedBy: newLikedStatus ? arrayUnion(currentUserId) : arrayRemove(currentUserId),
+    });
 
+    // ✅ Send notification only when user LIKES (not unlikes)
+    if (newLikedStatus && post.userId !== currentUserId) {
+  const senderName = currentUser?.firstName || currentUser?.userName || 'Someone';
+  const postTitle = post.title && post.title.trim() !== '' ? post.title : 'Untitled post';
+
+  await addDoc(collection(db, "notifications"), {
+    receiverId: post.userId,
+    senderId: currentUserId,
+    senderName,
+    senderProfileUrl: currentUser?.profilePictureUrl || null,
+    message: `${senderName} liked your post: "${postTitle}"`,
+    createdAt: serverTimestamp(),
+    postId: post.id,
+    postTitle,
+    postImageUrl: post.imageUrl || null,
+    type: "like",
+  });
+}
+
+  } catch (error) {
+    console.error('Error updating like status:', error);
+    // Rollback UI changes if error occurs
+    setIsLiked(!newLikedStatus);
+    setLikeCount(prevCount => (newLikedStatus ? prevCount - 1 : prevCount + 1));
+    Alert.alert('Error', 'Could not update like. Please try again.');
+  }
+};
+
+
+  
   const handleSaveToggle = async () => {
-    if (!currentUserId) {
-      Alert.alert('Action Required', 'Please log in to save posts.');
-      return;
-    }
-    if (!post.id) return;
+  if (!currentUserId) {
+    Alert.alert('Action Required', 'Please log in to save posts.');
+    return;
+  }
+  if (!post.id || !post.userId) return;
 
-    const postRef = doc(db, 'posts', post.id);
-    const newSavedStatus = !isSaved;
-    setIsSaved(newSavedStatus);
-    setSaveCount(prevCount => (newSavedStatus ? prevCount + 1 : prevCount - 1));
+  const postRef = doc(db, 'posts', post.id);
+  const newSavedStatus = !isSaved;
+  setIsSaved(newSavedStatus);
+  setSaveCount(prevCount => (newSavedStatus ? prevCount + 1 : prevCount - 1));
 
+  try {
+    await updateDoc(postRef, {
+      savesCount: increment(newSavedStatus ? 1 : -1),
+      savedBy: newSavedStatus ? arrayUnion(currentUserId) : arrayRemove(currentUserId),
+    });
 
-    try {
-      await updateDoc(postRef, {
-        savesCount: increment(newSavedStatus ? 1 : -1), // Ensure this line is active
-        savedBy: newSavedStatus ? arrayUnion(currentUserId) : arrayRemove(currentUserId),
+    // ✅ Send notification only when user SAVES (not unsaves)
+    if (newSavedStatus && post.userId !== currentUserId) {
+      const senderName =
+        currentUser?.firstName || currentUser?.userName || 'Someone';
+      const postTitle =
+        post.title && post.title.trim() !== '' ? post.title : 'Untitled post';
+
+      await addDoc(collection(db, "notifications"), {
+        receiverId: post.userId,
+        senderId: currentUserId,
+        senderName,
+        senderProfileUrl: currentUser?.profilePictureUrl || null,
+        message: `${senderName} saved your post: "${postTitle}"`,
+        createdAt: serverTimestamp(),
+        postId: post.id,
+        postTitle,
+        postImageUrl: post.imageUrl || null,
+        type: "save",
       });
-      Alert.alert('Post Status', newSavedStatus ? 'Post added to your saved items.' : 'Post removed from your saved items.');
-    } catch (error) {
-      console.error('Error updating save status:', error);
-      setIsSaved(!newSavedStatus);
-      setSaveCount(prevCount => (newSavedStatus ? prevCount - 1 : prevCount + 1));
-      Alert.alert('Error', 'Could not update save status. Please try again.');
+
+      console.log("✅ Notification created for save event.");
     }
-  };
+  } catch (error) {
+    console.error('Error updating save status:', error);
+    setIsSaved(!newSavedStatus);
+    setSaveCount(prevCount => (newSavedStatus ? prevCount - 1 : prevCount + 1));
+    Alert.alert('Error', 'Could not update save status. Please try again.');
+  }
+};
+
 
   const defaultProfilePic = 'https://placehold.co/50x50/E0E0E0/B0B0B0/png?text=User';
 
@@ -403,29 +450,37 @@ const DiscoverScreen = () => {
     <SafeAreaView style={styles.safeArea}>
       {renderHeader()}
       <FlatList
-        data={posts}
-        renderItem={({ item }) => (
-          <PostItem
-            post={item}
-            currentUserId={currentUserId}
-            onShowLikes={handleShowLikes}
-          />
-        )}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContentContainer}
-        ListEmptyComponent={
-          !loading ? (
-            <View style={styles.emptyStateContainer}>
-              <Ionicons name="compass-outline" size={60} color="#B0B0B0" />
-              <Text style={styles.emptyStateText}>No posts yet.</Text>
-              <Text style={styles.emptyStateSubText}>Be the first to share something!</Text>
-            </View>
-          ) : null
-        }
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#007AFF"]} tintColor={"#007AFF"} />
-        }
+  data={posts}
+  renderItem={({ item }) => (
+    <View style={{ marginBottom: 12 }}>
+      <PostItem
+        post={item}
+        currentUserId={currentUserId}
+        currentUser={currentUser}
+        onShowLikes={handleShowLikes}
       />
+      <CommentsSection
+        postId={item.id}
+        currentUser={currentUserId ? currentUser : null}
+      />
+    </View>
+  )}
+  keyExtractor={item => item.id}
+  contentContainerStyle={styles.listContentContainer}
+  ListEmptyComponent={
+    !loading ? (
+      <View style={styles.emptyStateContainer}>
+        <Ionicons name="compass-outline" size={60} color="#B0B0B0" />
+        <Text style={styles.emptyStateText}>No posts yet.</Text>
+        <Text style={styles.emptyStateSubText}>Be the first to share something!</Text>
+      </View>
+    ) : null
+  }
+  refreshControl={
+    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#007AFF"]} tintColor={"#007AFF"} />
+  }
+/>
+
       <TouchableOpacity style={styles.fab} onPress={navigateToCreatePost}>
         <Ionicons name="add-outline" size={30} color="white" />
       </TouchableOpacity>
