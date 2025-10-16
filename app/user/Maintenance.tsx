@@ -5,7 +5,7 @@ import { Picker } from '@react-native-picker/picker';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 Notifications.setNotificationHandler({
@@ -29,7 +29,9 @@ const reminderOptions = [
   { label: 'Remind me in 6 months', value: 6 },
   { label: 'Remind me in 9 months', value: 9 },
   { label: 'Remind me in 12 months', value: 12 },
+  { label: 'Custom Reminder…', value: -1 }, // 👈 NEW
 ];
+
 
 const MaintenanceScreen = () => {
   const { vehicles, isLoadingProfile, profileError, fetchUserProfileData, updateVehicleReminders } = useUserProfileStore();
@@ -37,6 +39,7 @@ const MaintenanceScreen = () => {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [currentVehicleReminders, setCurrentVehicleReminders] = useState<{[itemId: string]: number}>({});
   const [isSavingReminders, setIsSavingReminders] = useState(false);
+const [customReminderValues, setCustomReminderValues] = useState<{ [itemId: string]: number }>({});
 
   useEffect(() => {
     const setupNotifications = async () => {
@@ -155,47 +158,56 @@ const MaintenanceScreen = () => {
   };
 
   const handleSaveReminders = async () => {
-    if (!selectedVehicle || !currentUser?.id) {
-      Alert.alert("Error", "No vehicle selected or user not logged in.");
-      return;
-    }
+  if (!selectedVehicle || !currentUser?.id) {
+    Alert.alert("Error", "No vehicle selected or user not logged in.");
+    return;
+  }
 
-    setIsSavingReminders(true);
+  setIsSavingReminders(true);
 
-    try {
-      await updateVehicleReminders(currentUser.id, selectedVehicle.id, currentVehicleReminders);
+  try {
+    // ✅ define mergedReminders before using it
+    const mergedReminders = { ...currentVehicleReminders };
 
-      const vehicleName = `${selectedVehicle.year} ${selectedVehicle.make} ${selectedVehicle.model}`;
-
-      for (const itemId of Object.keys(currentVehicleReminders)) {
-        const reminderMonths = currentVehicleReminders[itemId];
-        const maintenanceItem = carMaintenanceItems.find(item => item.id === itemId);
-
-        if (maintenanceItem) {
-          await scheduleMaintenanceNotification(
-            vehicleName,
-            maintenanceItem.name,
-            reminderMonths,
-            selectedVehicle.id,
-            itemId
-          );
-        } else {
-          console.warn(`Maintenance item details not found for ID: ${itemId}. Cannot schedule notification.`);
-          try {
-            await Notifications.cancelScheduledNotificationAsync(`maintenance-${selectedVehicle.id}-${itemId}`);
-          } catch (e) { }
-        }
+    Object.keys(customReminderValues).forEach(itemId => {
+      if (mergedReminders[itemId] === -1) {
+        mergedReminders[itemId] = customReminderValues[itemId];
       }
+    });
 
-      Alert.alert("Success", "Saved!");
+    await updateVehicleReminders(currentUser.id, selectedVehicle.id, mergedReminders);
 
-    } catch (error) {
-      console.error("Error saving reminders or scheduling notifications:", error);
-      Alert.alert("Save Error", `Failed to save reminders or schedule notifications. Details: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setIsSavingReminders(false);
+    const vehicleName = `${selectedVehicle.year} ${selectedVehicle.make} ${selectedVehicle.model}`;
+
+    for (const itemId of Object.keys(mergedReminders)) {
+      const reminderMonths = mergedReminders[itemId]; // also corrected here
+      const maintenanceItem = carMaintenanceItems.find(item => item.id === itemId);
+
+      if (maintenanceItem) {
+        await scheduleMaintenanceNotification(
+          vehicleName,
+          maintenanceItem.name,
+          reminderMonths,
+          selectedVehicle.id,
+          itemId
+        );
+      } else {
+        console.warn(`Maintenance item details not found for ID: ${itemId}. Cannot schedule notification.`);
+        try {
+          await Notifications.cancelScheduledNotificationAsync(`maintenance-${selectedVehicle.id}-${itemId}`);
+        } catch (e) {}
+      }
     }
-  };
+
+    Alert.alert("Success", "Saved!");
+  } catch (error) {
+    console.error("Error saving reminders or scheduling notifications:", error);
+    Alert.alert("Save Error", `Failed to save reminders or schedule notifications. Details: ${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    setIsSavingReminders(false);
+  }
+};
+
 
   const scheduleTestNotification = async () => {
     const { granted } = await Notifications.getPermissionsAsync();
@@ -328,17 +340,41 @@ console.log('Selected Vehicle Exists:', vehicles.some(v => v.id === selectedVehi
                     <View style={styles.reminderPickerContainer}>
                       
                       <Picker
-                        selectedValue={currentVehicleReminders?.[item.id] ?? 0} 
-                        onValueChange={(itemValue: number) => handleReminderChange(item.id, itemValue)}
-                        style={styles.reminderPicker}
-                        itemStyle={styles.pickerItem}
-                        enabled={!isSavingReminders} 
-                      >
-                        {reminderOptions.map(option => (
-                          <Picker.Item key={option.value} label={option.label} value={option.value} />
-                        ))}
-                        
-                      </Picker>
+  selectedValue={currentVehicleReminders?.[item.id] ?? 0}
+  onValueChange={(itemValue: number) => handleReminderChange(item.id, itemValue)}
+  style={styles.reminderPicker}
+  itemStyle={styles.pickerItem}
+  enabled={!isSavingReminders}
+>
+  {reminderOptions.map(option => (
+    <Picker.Item key={option.value} label={option.label} value={option.value} />
+  ))}
+</Picker>
+
+{/* 👇 If user selected "Custom Reminder…" */}
+{currentVehicleReminders?.[item.id] === -1 && (
+  <View style={styles.customReminderInputContainer}>
+    <Text style={styles.customReminderLabel}>Enter custom reminder (in months):</Text>
+    <View style={styles.customInputRow}>
+      <TextInput
+        keyboardType="numeric"
+        placeholder="e.g. 2"
+        style={styles.customInput}
+        onChangeText={(text) => {
+  const months = parseInt(text) || 0;
+  setCustomReminderValues(prev => ({ ...prev, [item.id]: months }));
+  <Text style={{ marginTop: 5, fontSize: 13, color: 'gray' }}>
+  You entered: {customReminderValues[item.id] || 0} month(s)
+</Text>
+
+}}
+
+      />
+      <Text style={{ marginLeft: 5 }}>months</Text>
+    </View>
+  </View>
+)}
+
                       
                     </View>
                   </View>
@@ -487,6 +523,33 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  customReminderInputContainer: {
+  marginTop: 10,
+  backgroundColor: '#F8F9FA',
+  borderRadius: 6,
+  padding: 10,
+  borderWidth: 1,
+  borderColor: '#ccc',
+},
+customReminderLabel: {
+  fontSize: 14,
+  color: '#333',
+  marginBottom: 5,
+},
+customInputRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+},
+customInput: {
+  borderWidth: 1,
+  borderColor: '#aaa',
+  borderRadius: 5,
+  padding: 6,
+  width: 80,
+  textAlign: 'center',
+  color: '#000',
+},
+
 });
 
 export default MaintenanceScreen;

@@ -186,7 +186,7 @@ const PostItem: React.FC<{
   const handleAskAIRiderCardo = () => {
     const prompt = `Explain or give advice about this topic: "${post.title}". Description: "${post.description}"`;
     router.push({
-      pathname: '/a',
+      pathname: '/chatbot',
       params: { prompt },
     });
   };
@@ -427,6 +427,26 @@ const styles = StyleSheet.create({
   chatbotFab: { position: 'absolute', bottom: 110, right: 20, backgroundColor: '#007AFF', width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4 },
   askAIButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#007AFF', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, alignSelf: 'flex-start', marginTop: 6 },
   askAIButtonText: { color: 'white', fontWeight: '600', marginLeft: 6 },
+    errorText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: 'red',
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 12,
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+
 });
 
 export default DiscoverScreen;
