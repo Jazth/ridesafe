@@ -29,7 +29,7 @@ const GOOGLE_MAPS_APIKEY = 'AIzaSyAxVriB1UsbVdbBbrWQTAnAohoxwKVLXPA';
 export default function MechanicDashboard() {
   const { currentUser } = useUserQueryLoginStore();
   const { userInfo, fetchUserProfileData } = useUserProfileStore();
-
+const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
   const [requests, setRequests] = useState<BreakdownRequest[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<BreakdownRequest | null>(null);
   const [mapModalVisible, setMapModalVisible] = useState(false);
@@ -125,7 +125,7 @@ const handleAcceptRequest = async () => {
   if (!selectedRequest || !mechanicId) return;
 
   if (isOnCooldown) {
-    const minsLeft = Math.ceil((cooldownUntil!.getTime() - Date.now()) / 60000);
+    const minsLeft = Math.ceil((cooldownUntil!.getTime() - Date.now()) / 1);
     Alert.alert('Cooldown Active', `You can claim again in ${minsLeft} minute(s).`);
     return;
   }
@@ -200,7 +200,7 @@ const handleAcceptRequest = async () => {
               cancelledAt: new Date(),
             });
             setAccepted(false);
-            setCooldownUntil(new Date(Date.now() + 10 * 60 * 1000));
+            setCooldownUntil(new Date(Date.now() + 1 * 60 * 1000));
             setMapModalVisible(false);
           } catch {
             Alert.alert('Error', 'Failed to cancel request.');
@@ -209,6 +209,20 @@ const handleAcceptRequest = async () => {
       },
     ]);
   };
+  // 🔹 Countdown timer for cooldown
+useEffect(() => {
+  if (!cooldownUntil) return;
+
+  const updateRemaining = () => {
+    const diff = cooldownUntil.getTime() - Date.now();
+    setCooldownRemaining(diff > 0 ? diff : 0);
+  };
+
+  updateRemaining();
+  const interval = setInterval(updateRemaining, 1000);
+
+  return () => clearInterval(interval);
+}, [cooldownUntil]);
 
   const handleMarkAsDone = async () => {
     if (!selectedRequest) return;
@@ -441,11 +455,16 @@ const handleAcceptRequest = async () => {
                     >
                       <Text style={styles.acceptButtonText}>
                         {isOnCooldown
-                          ? 'Cooldown Active'
+                          ? `Wait ${Math.floor(cooldownRemaining / 60000)
+                              .toString()
+                              .padStart(2, '0')}:${Math.floor((cooldownRemaining % 60000) / 1000)
+                              .toString()
+                              .padStart(2, '0')} before accepting again`
                           : activeRequest
                           ? 'Already Claimed'
                           : 'Accept Request'}
                       </Text>
+
                     </TouchableOpacity>
                   </View>
                 )}

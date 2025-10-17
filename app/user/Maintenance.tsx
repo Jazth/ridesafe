@@ -198,7 +198,6 @@ const [customReminderValues, setCustomReminderValues] = useState<{ [itemId: stri
         } catch (e) {}
       }
     }
-
     Alert.alert("Success", "Saved!");
   } catch (error) {
     console.error("Error saving reminders or scheduling notifications:", error);

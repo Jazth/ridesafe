@@ -6,6 +6,7 @@ import { db } from '@/scripts/firebaseConfig';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import * as Location from 'expo-location';
+import { router } from "expo-router";
 import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -39,6 +40,8 @@ const [latestDoneRequest, setLatestDoneRequest] = useState<BreakdownRequest | nu
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [transactionsModalVisible, setTransactionsModalVisible] = useState(false);
   const [userTransactions, setUserTransactions] = useState([]);
+  
+const [selectedTab, setSelectedTab] = useState<"pending" | "cancelled" | "done">("pending");
 
   useEffect(() => {
     if (!transactionsModalVisible || !currentUser?.id) return;
@@ -755,157 +758,118 @@ setTimeout(() => {
           </Modal>
 
           <Modal
-            animationType="slide"
-            transparent={true}
-            visible={transactionsModalVisible}
-            onRequestClose={() => setTransactionsModalVisible(false)}
+  animationType="slide"
+  transparent={true}
+  visible={transactionsModalVisible}
+  onRequestClose={() => setTransactionsModalVisible(false)}
+>
+  <View style={styles.modalBackground}>
+    <View style={styles.transactionsModalContainer}>
+      <Text style={styles.modalTitle}>Your Requests History</Text>
+
+      {/* ✅ Tabs at the top */}
+      <View style={styles.tabContainer}>
+        {["pending", "cancelled", "done"].map((status) => (
+          <TouchableOpacity
+            key={status}
+            style={[
+              styles.tabButton,
+              selectedTab === status && styles.activeTabButton,
+            ]}
+            onPress={() => setSelectedTab(status as "done" | "pending" | "cancelled")}
+
           >
-            <View style={styles.modalBackground}>
-              <View style={styles.transactionsModalContainer}>
-                <Text style={styles.modalTitle}>Your Requests History</Text>
-                <ScrollView style={{ maxHeight: 400 }}>
-                  <View style={{ flexDirection: "column" }}>
-            {/* 🟡 Pending Requests */}
-            <Text style={[styles.sectionTitle, { color: "#FFD700" }]}>
-              Pending Requests
+            <Text
+              style={[
+                styles.tabText,
+                selectedTab === status && styles.activeTabText,
+              ]}
+            >
+              {status === "pending"
+                ? "Pending"
+                : status === "cancelled"
+                ? "Cancelled"
+                : "Completed"}
             </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-            {userTransactions.filter((tx) => tx.status === "pending").length === 0 ? (
-              <Text style={styles.noRequestsText}>No pending requests.</Text>
-            ) : (
-              userTransactions
-                .filter((tx) => tx.status === "pending")
-                .map((tx) => {
-                  const vehicle = vehicles.find((v) => v.id === tx.vehicleId);
-                  return (
-                    <View key={tx.id} style={styles.transactionItem}>
-                      <Text>
-                        <Text style={{ fontWeight: "700" }}>Status:</Text> {tx.status}
-                      </Text>
-                      {tx.claimedBy && (
-                        <Text>
-                          <Text style={{ fontWeight: "700" }}>Claimed By:</Text>{" "}
-                          {tx.claimedBy.name || "Mechanic"}
-                        </Text>
-
-                      )}
-                      <Text>
-                        <Text style={{ fontWeight: "700" }}>Vehicle:</Text>{" "}
-                        {vehicle
-                          ? `${vehicle.year} ${vehicle.make} ${vehicle.model}`
-                          : "Unknown"}
-                      </Text>
-                      <Text>
-                        <Text style={{ fontWeight: "700" }}>Reason:</Text>{" "}
-                        {tx.reason || "Unknown"}
-                      </Text>
-                      <Text>
-                        <Text style={{ fontWeight: "700" }}>Address:</Text> {tx.address}
-                      </Text>
-                      <Text>
-                        <Text style={{ fontWeight: "700" }}>Date:</Text>{" "}
-                        {tx.timestamp
-                          ? new Date(tx.timestamp.seconds * 1000).toLocaleString()
-                          : "Unknown"}
-                      </Text>
-                    </View>
-                  );
-                })
-            )}
-
-            {/* 🔴 Cancelled Requests */}
-            <Text style={[styles.sectionTitle, { color: "#E53935" }]}>
-              Cancelled Requests
-            </Text>
-
-            {userTransactions.filter((tx) => tx.status === "cancelled").length === 0 ? (
-              <Text style={styles.noRequestsText}>No cancelled requests.</Text>
-            ) : (
-              userTransactions
-                .filter((tx) => tx.status === "cancelled")
-                .map((tx) => {
-                  const vehicle = vehicles.find((v) => v.id === tx.vehicleId);
-                  return (
-                    <View key={tx.id} style={styles.transactionItem}>
-                      <Text>
-                        <Text style={{ fontWeight: "700" }}>Status:</Text> {tx.status}
-                      </Text>
-                      <Text>
-                        <Text style={{ fontWeight: "700" }}>Vehicle:</Text>{" "}
-                        {vehicle
-                          ? `${vehicle.year} ${vehicle.make} ${vehicle.model}`
-                          : "Unknown"}
-                      </Text>
-                      <Text>
-                        <Text style={{ fontWeight: "700" }}>Reason:</Text> {tx.reason}
-                      </Text>
-                      <Text>
-                        <Text style={{ fontWeight: "700" }}>Address:</Text> {tx.address}
-                      </Text>
-                      <Text>
-                        <Text style={{ fontWeight: "700" }}>Date:</Text>{" "}
-                        {tx.timestamp
-                          ? new Date(tx.timestamp.seconds * 1000).toLocaleString()
-                          : "Unknown"}
-                      </Text>
-                    </View>
-                  );
-                })
-            )}
-
-            {/* 🟢 Completed Requests */}
-            <Text style={[styles.sectionTitle, { color: "#4CAF50" }]}>
-              Completed Requests
-            </Text>
-
-            {userTransactions.filter((tx) => tx.status === "done").length === 0 ? (
-              <Text style={styles.noRequestsText}>No completed requests.</Text>
-            ) : (
-              userTransactions
-                .filter((tx) => tx.status === "done")
-                .map((tx) => {
-                  const vehicle = vehicles.find((v) => v.id === tx.vehicleId);
-                  return (
-                    <View key={tx.id} style={styles.transactionItem}>
-                      <Text>
-                        <Text style={{ fontWeight: "700" }}>Status:</Text> {tx.status}
-                      </Text>
-                      <Text>
-                        <Text style={{ fontWeight: "700" }}>Vehicle:</Text>{" "}
-                        {vehicle
-                          ? `${vehicle.year} ${vehicle.make} ${vehicle.model}`
-                          : "Unknown"}
-                      </Text>
-                      <Text>
-                        <Text style={{ fontWeight: "700" }}>Reason:</Text>{" "}
-                        {tx.reason || "Unknown"}
-                      </Text>
-                      <Text>
-                        <Text style={{ fontWeight: "700" }}>Address:</Text> {tx.address}
-                      </Text>
-                      <Text>
-                        <Text style={{ fontWeight: "700" }}>Date:</Text>{" "}
-                        {tx.timestamp
-                          ? new Date(tx.timestamp.seconds * 1000).toLocaleString()
-                          : "Unknown"}
-                      </Text>
-                    </View>
-                  );
-                })
-            )}
-          </View>
-
-                </ScrollView>
-
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={() => setTransactionsModalVisible(false)}
+      {/* ✅ Tab Content */}
+      <ScrollView style={{ maxHeight: 400 }}>
+        {userTransactions
+          .filter((tx) => tx.status === selectedTab)
+          .map((tx) => {
+            const vehicle = vehicles.find((v) => v.id === tx.vehicleId);
+            return (
+              <TouchableOpacity
+                  key={tx.id}
+                  style={styles.transactionItem}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    if (tx.status === "done" || tx.status === "claimed" || tx.status === "success") {
+                      setTransactionsModalVisible(false);
+                      router.push({
+                        pathname: "/viewMechanicProfile",
+                        params: {
+                          requestId: tx.id,
+                        },
+                      });
+                    } 
+                  }}
                 >
-                  <Text style={styles.closeButtonText}>Close</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </Modal>
+            <Text>
+              <Text style={{ fontWeight: "700" }}>Status:</Text> {tx.status}
+            </Text>
+            {tx.claimedBy && (
+              <Text>
+                <Text style={{ fontWeight: "700" }}>Claimed By:</Text>{" "}
+                {tx.claimedBy.name || "Mechanic"}
+              </Text>
+            )}
+            <Text>
+              <Text style={{ fontWeight: "700" }}>Vehicle:</Text>{" "}
+              {vehicles.find((v) => v.id === tx.vehicleId)
+                ? `${vehicles.find((v) => v.id === tx.vehicleId).year} ${
+                    vehicles.find((v) => v.id === tx.vehicleId).make
+                  } ${vehicles.find((v) => v.id === tx.vehicleId).model}`
+                : "Unknown"}
+            </Text>
+            <Text>
+              <Text style={{ fontWeight: "700" }}>Reason:</Text>{" "}
+              {tx.reason || "Unknown"}
+            </Text>
+            <Text>
+              <Text style={{ fontWeight: "700" }}>Address:</Text>{" "}
+              {tx.address}
+            </Text>
+            <Text>
+              <Text style={{ fontWeight: "700" }}>Date:</Text>{" "}
+              {tx.timestamp
+                ? new Date(tx.timestamp.seconds * 1000).toLocaleString()
+                : "Unknown"}
+            </Text>
+          </TouchableOpacity>
+
+            );
+          })}
+
+        {userTransactions.filter((tx) => tx.status === selectedTab).length ===
+          0 && (
+          <Text style={styles.noRequestsText}>No {selectedTab} requests.</Text>
+        )}
+      </ScrollView>
+
+      <TouchableOpacity
+        style={styles.closeButton}
+        onPress={() => setTransactionsModalVisible(false)}
+      >
+        <Text style={styles.closeButtonText}>Close</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
         </>
       ) : (
         <View style={styles.permissionDeniedContainer}>
@@ -985,6 +949,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  tabContainer: {
+  flexDirection: "row",
+  justifyContent: "space-around",
+  marginVertical: 10,
+  borderBottomWidth: 1,
+  borderColor: "#ccc",
+},
+tabButton: {
+  flex: 1,
+  paddingVertical: 12,
+  alignItems: "center",
+},
+activeTabButton: {
+  borderBottomWidth: 3,
+  borderColor: "#4285F4",
+},
+tabText: {
+  fontSize: 16,
+  color: "#555",
+  fontWeight: "600",
+},
+activeTabText: {
+  color: "#4285F4",
+  fontWeight: "700",
+},
   statusContainer: {
   justifyContent: 'center',
   alignItems: 'center',
@@ -1188,7 +1177,7 @@ cancelledStatus: {
     paddingHorizontal: 20,
     width: '90%',
     maxWidth: 400,
-    maxHeight: 400,
+    maxHeight: '85%',
     elevation: 10,
   },
   transactionItem: {
