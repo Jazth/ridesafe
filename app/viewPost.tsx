@@ -4,26 +4,26 @@ import { db } from "@/scripts/firebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import {
-    arrayRemove,
-    arrayUnion,
-    doc,
-    increment,
-    onSnapshot,
-    Timestamp,
-    updateDoc
+  arrayRemove,
+  arrayUnion,
+  doc,
+  increment,
+  onSnapshot,
+  Timestamp,
+  updateDoc
 } from "firebase/firestore";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    FlatList,
-    RefreshControl,
-    Image as RNImage,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  FlatList,
+  RefreshControl,
+  Image as RNImage,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 

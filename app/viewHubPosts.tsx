@@ -4,28 +4,28 @@ import { db, storage } from '@/scripts/firebaseConfig'; // Import Firestore and 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
-    collection,
-    deleteDoc,
-    doc,
-    onSnapshot,
-    orderBy,
-    query,
-    Timestamp,
-    where,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  Timestamp,
+  where,
 } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    FlatList,
-    RefreshControl,
-    Image as RNImage,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  FlatList,
+  RefreshControl,
+  Image as RNImage,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -226,7 +226,7 @@ const ViewHubPostsScreen = () => {
 
   const renderHeader = () => (
     <View style={styles.screenHeader}>
-        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/user/Profile')} style={styles.backButton}>
+        <TouchableOpacity onPress={() =>  router.replace('/user/Profile')} style={styles.backButton}>
             <Ionicons name="arrow-back-outline" size={26} color="#333" />
         </TouchableOpacity>
       <Text style={styles.screenTitle}>My Hub Posts</Text>

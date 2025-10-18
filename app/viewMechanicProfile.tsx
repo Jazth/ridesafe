@@ -114,36 +114,38 @@ const handleSubmitReport = async () => {
     }
 
     // ✅ Prepare Firestore data
-    const reportData = {
-      reportedBy: {
-        id: userInfo?.id || "unknown",
-        name: userInfo?.name || "Anonymous",
-        email: userInfo?.email || "N/A",
-        role: userInfo?.role || "user",
-      },
+    // ✅ Prepare Firestore data
+const reportData = {
+  reportedBy: {
+    id: userInfo?.id || "unknown",
+    name: `${userInfo?.firstName || ""} ${userInfo?.lastName || ""}`.trim() || "Anonymous",
+    email: userInfo?.email || "N/A",
+    role: userInfo?.role || "user",
+  },
 
-      reportedTo: request.claimedBy
-        ? {
-            id: request.claimedBy.id,
-            name: request.claimedBy.name || "N/A",
-          }
-        : null,
+  reportedTo: request.claimedBy
+    ? {
+        id: request.claimedBy.id,
+        name: request.claimedBy.name || "N/A",
+      }
+    : null,
 
-      breakdownRequest: {
-        id: request.id,
-        userId: request.userId,
-        address: request.address,
-        reason: request.reason,
-        status: request.status,
-        vehicle: request.vehicle || null,
-      },
+  breakdownRequest: {
+    id: request.id,
+    userId: request.userId,
+    address: request.address,
+    reason: request.reason,
+    status: request.status,
+    vehicle: request.vehicle || null,
+  },
 
-      reportReason: selectedReason,
-      description: reportText || "No additional details provided.",
-      proofImageUrl: proofImageUrl || null,
-      createdAt: Timestamp.now(),
-      status: "pending",
-    };
+  reportReason: selectedReason,
+  description: reportText || "No additional details provided.",
+  proofImageUrl: proofImageUrl || null,
+  createdAt: Timestamp.now(),
+  status: "pending",
+};
+
 
     // ✅ Save to Firestore
     await addDoc(collection(db, "reports"), reportData);

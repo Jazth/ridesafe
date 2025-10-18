@@ -1,4 +1,3 @@
-// ✅ MechanicHistory.tsx
 import type { BreakdownRequest } from '@/constants/callForHelp';
 import { useUserQueryLoginStore } from '@/constants/store';
 import { db } from '@/scripts/firebaseConfig';
@@ -12,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 export default function MechanicHistory() {
   const { currentUser } = useUserQueryLoginStore();
@@ -21,7 +22,6 @@ export default function MechanicHistory() {
   const [selectedRequest, setSelectedRequest] = useState<BreakdownRequest | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  // ✅ Listen for all requests handled by this mechanic
   useEffect(() => {
     if (!mechanicId) return;
 
@@ -32,12 +32,10 @@ export default function MechanicHistory() {
         ...doc.data(),
       })) as BreakdownRequest[];
 
-      // only requests this mechanic handled
       const myRequests = all.filter(
         (r) => r.claimedBy?.id === mechanicId || r.cancelledBy === mechanicId
       );
 
-      // sort by date descending
       const sorted = myRequests.sort(
         (a, b) =>
           new Date(b.timestamp?.toDate?.() ?? b.timestamp).getTime() -
@@ -50,17 +48,16 @@ export default function MechanicHistory() {
     return () => unsubscribe();
   }, [mechanicId]);
 
-  // ✅ Map status to color
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'done':
-        return '#4CAF50'; // green
+        return '#4CAF50';
       case 'cancelled':
-        return '#E53935'; // red
+        return '#E53935';
       case 'pending':
-        return '#FFC107'; // yellow
+        return '#FFC107';
       case 'claimed':
-        return '#9C27B0'; // purple
+        return '#9C27B0';
       default:
         return '#555';
     }
@@ -102,7 +99,15 @@ export default function MechanicHistory() {
         )}
       </ScrollView>
 
-      {/* Modal for details */}
+      {/* Floating Notification Icon */}
+      <TouchableOpacity
+        style={styles.floatingButton}
+        onPress={() => router.replace('/mechanicNotifications')}
+      >
+        <Ionicons name="notifications" size={28} color="#fff" />
+      </TouchableOpacity>
+
+      {/* Modal */}
       <Modal
         visible={modalVisible}
         transparent
@@ -227,4 +232,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   closeButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  // 🔶 Floating button style
+  floatingButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: '#FF5722',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+  },
 });
