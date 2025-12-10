@@ -66,6 +66,20 @@ export default function LoginScreen() {
       } else {
         router.replace('/user');
       }
+      if (userData?.accountStatus === "banned") {
+  alert("Your account has been banned by the admin.");
+  return; // prevent login
+}
+
+if (
+  userData?.accountStatus === "disabled" &&
+  userData?.disabledUntil?.toDate() > new Date()
+) {
+  const until = userData.disabledUntil.toDate().toLocaleDateString();
+  alert(`Your account is temporarily disabled until ${until}.`);
+  return; // prevent login
+}
+
     }
   };
 

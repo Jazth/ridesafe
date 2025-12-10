@@ -285,7 +285,7 @@ const ProfileSettingsScreen = () => {
             </ScrollView>
 
              <View style={styles.backButtonContainerBottom}> 
-                 <TouchableOpacity onPress={() => router.replace('../Profile')}>
+                 <TouchableOpacity onPress={() => router.replace('/user/Profile')}>
                      <Text style={styles.backButtonTextBottom}>Back</Text>
                  </TouchableOpacity>
              </View>

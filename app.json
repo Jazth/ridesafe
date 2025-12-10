@@ -51,6 +51,9 @@
       "typedRoutes": true
     },
     "extra": {
+      "OPENAI_API_KEY":"",
+      "OPENAI_API_URL": "",
+
       "router": {},
       "eas": {
         "projectId": "02ad1e77-239c-487c-8f4b-783c6a907d04"

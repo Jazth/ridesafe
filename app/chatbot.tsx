@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState, useRef } from "react";
 import {
@@ -35,20 +36,17 @@ export default function Chatbot() {
     setLoading(true);
 
     try {
-      const apiUrl =
-        process.env.EXPO_PUBLIC_OPENAI_API_URL ||
-        "https://api.openai.com/v1/chat/completions";
+      const apiUrl = Constants.expoConfig.extra.OPENAI_API_URL;
+console.log("API KEY:", process.env.EXPO_PUBLIC_OPENAI_API_KEY);
 
-      const apiKey =
-        process.env.EXPO_PUBLIC_OPENAI_API_KEY ||
-        process.env.OPENAI_API_KEY;
+      const apiKey = Constants.expoConfig.extra.OPENAI_API_KEY;
 
       if (!apiKey) {
         throw new Error(
           "Missing API key. Please add EXPO_PUBLIC_OPENAI_API_KEY in your .env"
         );
       }
-
+      
       const res = await fetch(apiUrl, {
         method: "POST",
         headers: {

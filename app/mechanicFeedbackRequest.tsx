@@ -108,10 +108,17 @@ const handleSelectRequest = async (req: BreakdownRequest) => {
       await uploadBytes(storageRef, blob);
       proofImageUrl = await getDownloadURL(storageRef);
     }
-
+ let reportedUserEmail = "N/A";
+    if (request?.userId) {
+      const userRef = doc(db, "users", request.userId);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        reportedUserEmail = userSnap.data().email || "N/A";
+      }
+    }
     // reportedTo should be the user in the breakdown request
     const reportedTo = request?.userId
-      ? { id: request.userId, name: request.userName || "N/A" }
+      ? { id: request.userId, name: request.userName || "N/A", email: reportedUserEmail, }
       : null;
 
     const reportData = {
@@ -134,18 +141,21 @@ const handleSelectRequest = async (req: BreakdownRequest) => {
       proofImageUrl,
       createdAt: Timestamp.now(),
       status: "pending",
+      
+targetType: "user",
+
     };
 
     await addDoc(collection(db, "reports"), reportData);
 
-    Alert.alert("✅ Report Submitted", "Your report has been successfully recorded.");
+    Alert.alert("Report Submitted", "Your report has been successfully recorded.");
     setReportVisible(false);
     setSelectedReasons([]);
     setReportText("");
     setProofImage(null);
   } catch (error) {
     console.error("Error submitting report:", error);
-    Alert.alert("❌ Error", "Something went wrong while submitting your report.");
+    Alert.alert(" Error", "Something went wrong while submitting your report.");
   } finally {
     setLoading(false);
   }
@@ -272,7 +282,7 @@ const handleSelectRequest = async (req: BreakdownRequest) => {
         createdAt: Timestamp.now(),
       });
 
-      Alert.alert("✅ Feedback Submitted", "Your service notes have been saved.", [
+      Alert.alert(" Feedback Submitted", "Your service notes have been saved.", [
         {
           text: "OK",
           onPress: () => router.replace("/mechanic/mechanicDashboard"), // Redirect to homepage
@@ -283,7 +293,7 @@ const handleSelectRequest = async (req: BreakdownRequest) => {
       setServiceImages([]);
     } catch (err) {
       console.error(err);
-      Alert.alert("❌ Error", "Failed to save service feedback.");
+      Alert.alert(" Error", "Failed to save service feedback.");
     } finally {
       setLoading(false);
     }

@@ -114,34 +114,50 @@ export default function ViewMechanicProfile() {
         await uploadBytes(storageRef, blob);
         proofImageUrl = await getDownloadURL(storageRef);
       }
+      let reportedMechanicEmail = "N/A";
 
-      const reportData = {
-        reportedBy: {
-          id: userInfo?.id || "unknown",
-          name: `${userInfo?.firstName || ""} ${userInfo?.lastName || ""}`.trim() || "Anonymous",
-          email: userInfo?.email || "N/A",
-          role: userInfo?.role || "user",
-        },
-        reportedTo: request.claimedBy
-          ? {
-              id: request.claimedBy.id,
-              name: request.claimedBy.name || "N/A",
-            }
-          : null,
-        breakdownRequest: {
-          id: request.id,
-          userId: request.userId,
-          address: request.address,
-          reason: request.reason,
-          status: request.status,
-          vehicle: request.vehicle || null,
-        },
-        reportReasons: selectedReasons, // ✅ store as array
-        description: reportText || "No additional details provided.",
-        proofImageUrl: proofImageUrl || null,
-        createdAt: Timestamp.now(),
-        status: "pending",
-      };
+if (request?.claimedBy?.id) {
+  const mechRef = doc(db, "mechanics", request.claimedBy.id);
+  const mechSnap = await getDoc(mechRef);
+
+  if (mechSnap.exists()) {
+    reportedMechanicEmail = mechSnap.data().email || "N/A";
+  }
+}
+const reportData = {
+  reportedBy: {
+    id: userInfo?.id || "unknown",
+    name: `${userInfo?.firstName} ${userInfo?.lastName}`.trim(),
+    email: userInfo?.email || "N/A",
+    role: "user",
+  },
+
+  reportedTo: {
+    id: request.claimedBy.id,
+    name: request.claimedBy.name || "N/A",
+    email: reportedMechanicEmail,
+  },
+
+  userName: `${userInfo?.firstName} ${userInfo?.lastName}`.trim(),
+  mechanicName: request.claimedBy.name || "N/A",
+
+  breakdownRequest: {
+    id: request.id,
+    userId: request.userId,
+    address: request.address,
+    reason: request.reason,
+    status: request.status,
+    vehicle: request.vehicle || null,
+  },
+
+  reportReasons: selectedReasons,
+  description: reportText || "No additional details provided.",
+  proofImageUrl: proofImageUrl || null,
+  createdAt: Timestamp.now(),
+  status: "pending",
+
+  targetType: "mechanic",
+};
 
       await addDoc(collection(db, "reports"), reportData);
 
@@ -156,7 +172,7 @@ export default function ViewMechanicProfile() {
       setProofImage(null);
     } catch (error) {
       console.error("Error submitting report:", error);
-      Alert.alert("❌ Error", "Something went wrong while submitting your report.");
+      Alert.alert(" Error", "Something went wrong while submitting your report.");
     } finally {
       setLoading(false);
     }

@@ -57,7 +57,6 @@ export const CommentsSection = ({ postId, currentUser }: { postId: string; curre
     return unsubscribe;
   }, [postId]);
 
-  // 🔹 Fetch replies
   useEffect(() => {
     const unsubscribes = comments.map((comment) => {
       const repliesRef = collection(db, 'posts', postId, 'comments', comment.id, 'replies');
@@ -71,7 +70,6 @@ export const CommentsSection = ({ postId, currentUser }: { postId: string; curre
     return () => unsubscribes.forEach((unsub) => unsub());
   }, [comments, postId]);
 
-  // 🔹 Add new comment
   const handleAddComment = async () => {
     if (!newComment.trim() || !currentUser) return;
     const commentsRef = collection(db, 'posts', postId, 'comments');

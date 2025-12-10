@@ -7,9 +7,9 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import * as Location from 'expo-location';
 import { router } from "expo-router";
-import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where, getDocs } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -39,7 +39,13 @@ const [latestDoneRequest, setLatestDoneRequest] = useState<BreakdownRequest | nu
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [transactionsModalVisible, setTransactionsModalVisible] = useState(false);
   const [userTransactions, setUserTransactions] = useState([]);
-  
+  const [allTransactions, setAllTransactions] = useState([]);
+
+const [searchQuery, setSearchQuery] = useState("");
+const [filtersVisible, setFiltersVisible] = useState(false);
+const [activeFilter, setActiveFilter] = useState<"employee" | "vehicle" | "date" | null>(null);
+const [mechanicRating, setMechanicRating] = useState<number | null>(null);
+
 const [selectedTab, setSelectedTab] = useState<"pending" | "cancelled" | "done">("pending");
 
   useEffect(() => {
@@ -66,6 +72,9 @@ const [selectedTab, setSelectedTab] = useState<"pending" | "cancelled" | "done">
         transactions.push({ id: doc.id, ...doc.data() });
       });
       setUserTransactions(transactions);
+      setAllTransactions(transactions);
+setUserTransactions(transactions); // display list
+
     });
 
     return () => unsubscribe();
@@ -119,7 +128,9 @@ const [selectedTab, setSelectedTab] = useState<"pending" | "cancelled" | "done">
     }
   }, [activeRequest]);
   // ✅ Detect when a request transitions to "done" in real-time (even after completion)
-// ✅ Detect when a request transitions to "done" in real-time (even after completion)
+  const mechanicId = activeRequest?.claimedBy?.id ?? null;
+
+  console.log (mechanicId)
 useEffect(() => {
   if (!currentUser?.id) return;
 
@@ -226,6 +237,8 @@ useEffect(() => {
     if (activeRequest?.status === "claimed" && activeRequest.claimedBy?.id) {
       const mechanicRef = doc(db, "mechanics", activeRequest.claimedBy.id);
       console.log("👀 Tracking mechanic:", activeRequest.claimedBy.id);
+console.log("activeRequest.claimedBy:", activeRequest?.claimedBy);
+console.log("mechanicRating:", mechanicRating);
 
       const unsubscribe = onSnapshot(mechanicRef, async (docSnap) => {
         const data = docSnap.data();
@@ -276,6 +289,45 @@ useEffect(() => {
       setRouteCoords([]);
     }
   }, [activeRequest, userLocation]);
+useEffect(() => {
+  const fetchMechanicRating = async () => {
+  if (!activeRequest?.claimedBy?.id) return;
+
+  try {
+    const q = query(
+      collection(db, "mechanic_feedback"),
+      where("mechanic.id", "==", activeRequest.claimedBy.id)
+    );
+
+    const snapshot = await getDocs(q);
+    console.log("Snapshot docs:", snapshot.docs.map(d => d.data()));
+snapshot.docs.forEach(d => {
+  console.log("Mechanic id:", d.data().mechanic?.id, "Rating:", d.data().mechanic?.rating);
+});
+
+console.log("mechanic_feedback docs:", snapshot.docs.map(d => d.data()));
+    if (!snapshot.empty) {
+      const ratings = snapshot.docs
+  .map(doc => doc.data().rating) // ✅ top-level rating
+  .filter(r => r != null);
+
+      if (ratings.length > 0) {
+        const avg = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
+        setMechanicRating(avg);
+      } else {
+        setMechanicRating(null);
+      }
+    } else {
+      setMechanicRating(null);
+    }
+  } catch (err) {
+    console.error("Error fetching mechanic rating:", err);
+  }
+};
+
+
+  fetchMechanicRating();
+}, [activeRequest?.claimedBy?.id]);
 
   // When both mechanic & user exist, attempt to auto-fit both markers closely (street-level)
   useEffect(() => {
@@ -703,29 +755,36 @@ setTimeout(() => {
               )}
 
               {activeRequest.status === "claimed" && activeRequest.claimedBy && (
+  <>
+    <Text style={styles.claimedStatus}>
+      Claimed by: {activeRequest.claimedBy.name || "Mechanic"}
+    </Text>
+    {(activeRequest.claimedBy.firstName || activeRequest.claimedBy.lastName) && (
+      <Text style={styles.claimedStatus}>
+        Name: {activeRequest.claimedBy.firstName ?? ""} {activeRequest.claimedBy.lastName ?? ""}
+      </Text>
+    )}
+    <Text style={styles.claimedStatus}>
+      Phone: {activeRequest.claimedBy.phoneNum || "N/A"}
+    </Text>
+    <Text style={styles.claimedStatus}>
+      Business: {activeRequest.claimedBy.business || "N/A"}
+    </Text>
+    
+    {mechanicRating != null && (
+  <Text style={styles.claimedStatuses}>
+    Rating:{" "}
+    {Array.from({ length: 5 }, (_, i) =>
+      i < Math.round(mechanicRating) ? "★" : "☆"
+    ).join("")}{" "}
+    ({mechanicRating.toFixed(1)})
+  </Text>
+)}
 
-                <>
-                 {activeRequest.status === "claimed" && activeRequest.claimedBy && (
+  </>
+)}
 
-            <>
-              <Text style={styles.claimedStatus}>
-                Claimed by: {activeRequest.claimedBy.name || "Mechanic"}
-              </Text>
-                        {activeRequest.claimedBy.firstName || activeRequest.claimedBy.lastName ? (
-                          <Text style={styles.claimedStatus}>
-                            Name: {activeRequest.claimedBy.firstName || ""} {activeRequest.claimedBy.lastName || ""}
-                          </Text>
-                        ) : null}
-                        <Text style={styles.claimedStatus}>
-                          Phone: {activeRequest.claimedBy.phoneNum || "N/A"}
-                        </Text>
-                        <Text style={styles.claimedStatus}>
-                          Business: {activeRequest.claimedBy.business || "N/A"}
-                        </Text>
-                      </>
-                    )}
-                </>
-              )}
+        
 
               {activeRequest.status === "done" && (
                 <Text style={styles.completedStatus}>Completed</Text>
@@ -772,7 +831,124 @@ setTimeout(() => {
     <View style={styles.transactionsModalContainer}>
       <Text style={styles.modalTitle}>Your Requests History</Text>
 
-      {/* ✅ Tabs at the top */}
+     {/* SEARCH + FILTER ROW */}
+<View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
+  
+  {/* Search Input */}
+  <View style={{
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginRight: 10,
+    height: 40,
+    justifyContent: "center"
+  }}>
+    <TextInput
+      placeholder="Search employee or vehicle..."
+      value={searchQuery}
+      onChangeText={setSearchQuery}
+      style={{ fontSize: 14 }}
+    />
+  </View>
+
+  {/* Search Button */}
+  <TouchableOpacity
+    onPress={() => {}}
+    style={{
+      backgroundColor: "#4285F4",
+      paddingHorizontal: 12,
+      height: 40,
+      justifyContent: "center",
+      borderRadius: 8
+    }}
+  >
+    <Text style={{ color: "white", fontWeight: "700" }}>Search</Text>
+  </TouchableOpacity>
+
+  {/* Filter Icon */}
+  <TouchableOpacity
+    onPress={() => setFiltersVisible(!filtersVisible)}
+    style={{ marginLeft: 10 }}
+  >
+    <MaterialIcons name="filter-list" size={28} color="#333" />
+  </TouchableOpacity>
+</View>
+
+{/* FILTER OPTIONS */}
+{filtersVisible && (
+  <View
+    style={{
+      backgroundColor: "#f2f2f2",
+      padding: 10,
+      borderRadius: 8,
+      marginBottom: 10
+    }}
+  >
+ <TouchableOpacity
+      onPress={() => {
+        setActiveFilter("date");
+        setUserTransactions(prev =>
+          [...prev].sort(
+            (a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0)
+          )
+        );
+      }}
+    >
+      <Text style={{ paddingVertical: 6 }}>Sort by Date (Oldest)</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity 
+      onPress={() => {
+        setActiveFilter("date");
+        setUserTransactions(prev =>
+          [...prev].sort(
+            (a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)
+          )
+        );
+      }}
+    >
+      <Text style={{ paddingVertical: 6 }}>Sort by Date (Newest)</Text>
+    </TouchableOpacity>
+    
+    <TouchableOpacity onPress={() => setActiveFilter("vehicle")}>
+      <Text style={{ paddingVertical: 6 }}>Filter by Vehicle</Text>
+    </TouchableOpacity>
+  </View>
+)}
+{/* VEHICLE FILTER DROPDOWN */}
+{activeFilter === "vehicle" && (
+  <View style={{ marginTop: 6, backgroundColor: '#FF5722' }}>
+    <Picker
+  selectedValue={selectedVehicleId}
+  onValueChange={(value) => {
+    setSelectedVehicleId(value);
+
+    if (value === null) {
+      // Show ALL vehicles
+      setUserTransactions(allTransactions);
+    } else {
+      // Show specific vehicle only
+      setUserTransactions(
+        allTransactions.filter(tx => tx.vehicleId === value)
+      );
+    }
+  }}
+>
+
+      <Picker.Item label="All Vehicles" value={null} />
+      {vehicles.map(v => (
+        <Picker.Item 
+          key={v.id} 
+          label={`${v.year} ${v.make} ${v.model}`}
+          value={v.id}
+        />
+      ))}
+    </Picker>
+  </View>
+)}
+
       <View style={styles.tabContainer}>
         {["pending", "cancelled", "done"].map((status) => (
           <TouchableOpacity
@@ -803,7 +979,43 @@ setTimeout(() => {
       {/* ✅ Tab Content */}
       <ScrollView style={{ maxHeight: 400 }}>
         {userTransactions
-          .filter((tx) => tx.status === selectedTab)
+  .filter((tx) => tx.status === selectedTab)
+
+  // 🔍 SEARCH LOGIC
+  .filter((tx) => {
+    if (!searchQuery.trim()) return true;
+if (activeFilter === "vehicle") {
+  if (selectedVehicleId === null) return true; // All vehicles
+  return tx.vehicleId === selectedVehicleId;
+}
+
+
+    const q = searchQuery.toLowerCase();
+
+    // employee search
+    const employee =
+      tx.claimedBy?.name?.toLowerCase() ||
+      `${tx.claimedBy?.firstName ?? ""} ${tx.claimedBy?.lastName ?? ""}`.toLowerCase();
+
+    // vehicle search
+    const vehicle = vehicles.find(v => v.id === tx.vehicleId);
+    const vehicleLabel = vehicle
+      ? `${vehicle.year} ${vehicle.make} ${vehicle.model}`.toLowerCase()
+      : "";
+
+    return (
+      employee?.includes(q) ||
+      vehicleLabel.includes(q)
+    );
+  })
+
+  // 🎯 FILTER OPTIONS
+  .filter((tx) => {
+    if (activeFilter === "employee") return tx.claimedBy;
+    if (activeFilter === "vehicle") return tx.vehicleId;
+    return true; // date or none
+  })
+
           .map((tx) => {
             const vehicle = vehicles.find((v) => v.id === tx.vehicleId);
             return (
@@ -934,6 +1146,13 @@ claimedStatus: {
   marginVertical: 2,
 },
 
+  claimedStatuses:{
+  fontSize: 20,
+  fontWeight: '600',
+  color: 'FFD700',
+  textAlign: 'center',
+  marginVertical: 2,
+  },
 completedStatus: {
   fontSize: 20,
   fontWeight: '600',
@@ -957,7 +1176,6 @@ cancelledStatus: {
     width: '100%',
     maxWidth: 400,
   },
-
   cancelButton: {
     marginTop: 20,
     backgroundColor: '#E53935', // red color for cancel
