@@ -7,7 +7,7 @@ import Dashboard from "./pages/Dashboard.tsx";
 import Mechanics from "./pages/mechanics.tsx";
 import Reports from "./pages/reports.tsx"; // <-- Capitalize
 import Users from "./pages/users";
-
+import Privacy from "./pages/privacy.tsx"
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
@@ -16,6 +16,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="/users" element={<Users />} /> 
         <Route path="/mechanics" element={<Mechanics />} />   
         <Route path="/reports" element={<Reports />} /> 
+        <Route path="/privacy" element={<Privacy />} /> 
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
