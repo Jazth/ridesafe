@@ -404,6 +404,7 @@ export default function Dashboard() {
               <button className="bg-white text-[#FF5722] font-semibold py-2 px-4 rounded-lg hover:bg-gray-100" onClick={() => window.location.assign("/users")}>Search Users</button>
               <button className="bg-white text-[#FF5722] font-semibold py-2 px-4 rounded-lg hover:bg-gray-100" onClick={() => window.location.assign("/mechanics")}>Search Mechanics</button>
               <button className="bg-white text-[#FF5722] font-semibold py-2 px-4 rounded-lg hover:bg-gray-100" onClick={() => window.location.assign("/privacy")}>Privacy</button>
+              <button className="bg-white text-[#FF5722] font-semibold py-2 px-4 rounded-lg hover:bg-gray-100" onClick={() => window.location.assign("/delete-account")}>Delete-Account</button>
             </nav>
           </aside>
         </>
