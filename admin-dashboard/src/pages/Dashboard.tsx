@@ -1,7 +1,6 @@
-import  { useEffect, useMemo, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { Menu, X } from "lucide-react";
-import { db } from "../firebaseConfig";
+import { useEffect, useMemo, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -11,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { db } from "../firebaseConfig";
 
 // --- Helper: format Firestore timestamps & fallback values ---
 function formatDate(value: any) {
@@ -403,6 +403,7 @@ export default function Dashboard() {
               <button className="bg-white text-[#FF5722] font-semibold py-2 px-4 rounded-lg hover:bg-gray-100" onClick={() => window.location.assign("/reports")}>View Reports</button>
               <button className="bg-white text-[#FF5722] font-semibold py-2 px-4 rounded-lg hover:bg-gray-100" onClick={() => window.location.assign("/users")}>Search Users</button>
               <button className="bg-white text-[#FF5722] font-semibold py-2 px-4 rounded-lg hover:bg-gray-100" onClick={() => window.location.assign("/mechanics")}>Search Mechanics</button>
+              <button className="bg-white text-[#FF5722] font-semibold py-2 px-4 rounded-lg hover:bg-gray-100" onClick={() => window.location.assign("/privacy")}>Privacy</button>
             </nav>
           </aside>
         </>
